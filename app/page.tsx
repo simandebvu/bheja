@@ -61,7 +61,10 @@ export default function SignIn() {
           onSubmit={(e) => {
             e.preventDefault();
             setBusy(true);
-            router.push("/circles");
+            // Demo session: any sign-in on this form opens Rudo's account for 8 hours.
+            document.cookie = "rotapot_session=rudo; path=/; max-age=28800; samesite=lax";
+            const next = new URLSearchParams(window.location.search).get("next");
+            router.push(next && next.startsWith("/circles") ? next : "/circles");
           }}
         >
           <h2>Sign in</h2>

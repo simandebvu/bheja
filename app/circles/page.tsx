@@ -119,7 +119,15 @@ export default function Circles() {
         <div className="env">
           <span className={`env-pill ${data.paypalMode === "sandbox" ? "live" : ""}`}><i aria-hidden /> PayPal {data.paypalMode}</span>
           <button className="link-btn" onClick={reset}>Reset demo</button>
-          <Link className="link-btn" href="/">Sign out</Link>
+          <button
+            className="link-btn"
+            onClick={() => {
+              document.cookie = "rotapot_session=; path=/; max-age=0";
+              window.location.href = "/";
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
