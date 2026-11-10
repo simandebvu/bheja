@@ -1,4 +1,5 @@
-export type Language = "English" | "Shona" | "Ndebele" | "isiZulu" | "Sesotho";
+export type Language = "English" | "Shona" | "Ndebele" | "isiZulu" | "Sesotho" | "Setswana";
+export const LANGUAGES: Language[] = ["English", "Shona", "Ndebele", "isiZulu", "Sesotho", "Setswana"];
 
 export interface Member {
   id: string;
@@ -44,11 +45,14 @@ export interface Cycle {
   payout: Payout;
 }
 
+export type MessageKind = "reminder" | "receipt" | "payout";
+
 export interface Nudge {
   id: string;
   memberId: string;
   language: Language;
   message: string;
+  kind: MessageKind;
   channel: "whatsapp";
   createdAt: string;
 }
@@ -62,6 +66,9 @@ export interface ActivityItem {
 export interface Club {
   id: string;
   name: string;
+  /** What kind of circle this is, in the members' own words. */
+  kind: string;
+  purpose: string;
   currency: "USD";
   contributionAmount: string; // e.g. "50.00"
   rules: string[];
@@ -71,4 +78,23 @@ export interface Club {
   cycles: Cycle[];
   outbox: Nudge[];
   activity: ActivityItem[];
+}
+
+export interface BriefingStep {
+  tool: string;
+  input: Record<string, unknown>;
+  ok: boolean;
+  summary: string;
+}
+
+export interface Briefing {
+  at: string;
+  reply: string;
+  steps: BriefingStep[];
+}
+
+export interface Db {
+  version: 2;
+  clubs: Club[];
+  briefing?: Briefing;
 }

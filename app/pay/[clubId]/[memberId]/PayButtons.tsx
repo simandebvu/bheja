@@ -26,7 +26,7 @@ function loadSdk(clientId: string): Promise<PayPalNamespace> {
   });
 }
 
-export default function PayButtons({ memberId, clientId, amount }: { memberId: string; clientId: string | null; amount: string }) {
+export default function PayButtons({ clubId, memberId, clientId, amount }: { clubId: string; memberId: string; clientId: string | null; amount: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,7 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
             const res = await fetch("/api/paypal/orders", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ memberId }),
+              body: JSON.stringify({ clubId, memberId }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
@@ -61,7 +61,7 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
       })
       .catch((e: Error) => setError(e.message));
     return () => buttons?.close?.();
-  }, [clientId, memberId]);
+  }, [clientId, clubId, memberId]);
 
   if (done) return <div className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
 
@@ -76,7 +76,7 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
             const res = await fetch("/api/mock-pay", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ memberId }),
+              body: JSON.stringify({ clubId, memberId }),
             });
             const data = await res.json();
             if (res.ok) setDone(true);

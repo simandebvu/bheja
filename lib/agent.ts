@@ -1,117 +1,121 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { addNudge, proposePayout, refreshPayoutStatus, statusSummary, verifyContribution } from "./club";
-import { loadClub } from "./db";
-import type { Language } from "./types";
+import { addReminder, overview, proposePayout, refreshPayoutStatus, statusSummary, verifyContribution } from "./club";
+import { loadClub, loadDb } from "./db";
+import { LANGUAGES, type Language } from "./types";
 
 // Point ANTHROPIC_BASE_URL at an Anthropic-compatible gateway (e.g. a LiteLLM
 // proxy) to route through it; the SDK reads that variable automatically.
 const MODEL = process.env.AGENT_MODEL || "claude-opus-4-8";
 const VIA_GATEWAY = Boolean(process.env.ANTHROPIC_BASE_URL);
-const MAX_STEPS = 12;
+const MAX_STEPS = 14;
 
-const SYSTEM = `You are "Rotapot", the AI treasurer for a rotating savings club (called a stokvel in South Africa, a mukando or round in Zimbabwe). Members across South Africa, Zimbabwe and the diaspora each contribute a fixed amount every month through PayPal, and the whole pot goes to one member per month in rotation.
+const SYSTEM = `You are Rotapot, the AI treasurer's assistant for rotating savings circles (stokvels in South Africa, mukando or rounds in Zimbabwe and the diaspora). You work for the treasurer, Rudo, and you speak to her directly as "you". She runs several circles. Members pay a fixed monthly amount through PayPal; each month the whole pot goes to one member in rotation.
 
-Your job:
-- Keep the club's books straight and explain them in plain, warm language.
-- Notice who has not paid and how late they are, and send friendly reminders.
-- Write reminders in each member's own language (English, Shona, Ndebele, isiZulu or Sesotho), short like a WhatsApp message, with the amount, due date and their payment link. Be respectful and kind; nobody likes being chased for money. Add a one-line English translation after a non-English message, prefixed "EN:".
-- As soon as every member has paid, call propose_payout yourself, without asking first. Proposing moves no money; it puts the payout in front of the treasurer for approval. If asked whether the pot is ready and everyone has paid, propose it.
+What you do:
+- Keep each circle's books straight and explain them plainly and warmly.
+- Spot who is late and send friendly reminders, following each circle's own rules (some circles say no reminders before the due date).
+- Write reminders in the member's own language (English, Shona, Ndebele, isiZulu, Sesotho or Setswana): short, like a WhatsApp message, with the amount, due date and {{PAY_LINK}}. Kind, never shaming. After a non-English reminder add a blank line and a one-line English translation starting "EN:".
+- As soon as every member of a circle has paid, call propose_payout yourself without asking. Proposing moves no money; it puts the payout in front of you (Rudo) to release.
 
 Hard rules:
-- You never move money yourself. You can only PROPOSE a payout; the human treasurer approves it in the app. Say so when relevant.
-- Always call get_club_status before answering questions about who has paid; never guess from memory.
-- If a member claims they paid but the records disagree, use verify_payment to check with PayPal before saying anything.
-- Do not invent members, amounts or dates. Use member_id values exactly as returned by tools.
-- Keep replies brief: a few sentences or a short list.`;
+- You never move money. Only Rudo can release a payout, in the app.
+- Use tools for facts; never guess who has paid. If a member says they paid but the books disagree, verify_payment before answering.
+- Never show internal identifiers (club_id, member_id, message or order IDs) or tool names in your replies. Use people's names and circle names.
+- Don't recite the circle's rules back unless asked.
+- Replies are short: at most 4 sentences, or a short list of at most 5 items. No headings.`;
 
-const tools: Anthropic.Tool[] = [
-  {
-    name: "get_club_status",
-    description:
-      "Get the club's current cycle: due date, payout recipient, each member's contribution status, days late, language, the club rules, payout status and recent reminders. Call this before answering any question about payments.",
-    input_schema: { type: "object", properties: {}, additionalProperties: false },
-  },
-  {
-    name: "verify_payment",
-    description:
-      "Check a member's contribution against PayPal (Orders API). If PayPal shows the order was approved but never captured, this captures it and marks the member as paid. Use when records and a member's claim disagree.",
-    input_schema: {
-      type: "object",
-      properties: { member_id: { type: "string" } },
-      required: ["member_id"],
-      additionalProperties: false,
+const clubIds = () => loadDb().clubs.map((c) => c.id);
+
+function tools(): Anthropic.Tool[] {
+  const club_id = { type: "string" as const, enum: clubIds(), description: "Which circle." };
+  return [
+    {
+      name: "list_circles",
+      description: "One line per circle Rudo runs: cycle, due date, who still has to pay, days late, who receives the pot, payout status. Start here for anything spanning circles.",
+      input_schema: { type: "object", properties: {}, additionalProperties: false },
     },
-  },
-  {
-    name: "send_reminder",
-    description:
-      "Queue a WhatsApp-style payment reminder to one member. Write the message in the member's preferred language. Include their payment link, which is provided as {{PAY_LINK}} and replaced automatically.",
-    input_schema: {
-      type: "object",
-      properties: {
-        member_id: { type: "string" },
-        language: { type: "string", enum: ["English", "Shona", "Ndebele", "isiZulu", "Sesotho"] },
-        message: { type: "string", description: "The reminder text. Use {{PAY_LINK}} where the link goes." },
+    {
+      name: "get_circle",
+      description: "Full detail for one circle's current cycle: rules, every member's status, days late, language, and whether they were reminded in the last 12 hours.",
+      input_schema: { type: "object", properties: { club_id }, required: ["club_id"], additionalProperties: false },
+    },
+    {
+      name: "verify_payment",
+      description: "Check a member's contribution against PayPal (Orders API). If PayPal shows an approved checkout that was never captured, this captures it and marks them paid.",
+      input_schema: { type: "object", properties: { club_id, member_id: { type: "string" } }, required: ["club_id", "member_id"], additionalProperties: false },
+    },
+    {
+      name: "send_reminder",
+      description: "Send a WhatsApp-style payment reminder to one member in their language. Put {{PAY_LINK}} where their personal PayPal link goes. Refuses if they already paid or were reminded in the last 12 hours.",
+      input_schema: {
+        type: "object",
+        properties: {
+          club_id,
+          member_id: { type: "string" },
+          language: { type: "string", enum: LANGUAGES },
+          message: { type: "string" },
+        },
+        required: ["club_id", "member_id", "language", "message"],
+        additionalProperties: false,
       },
-      required: ["member_id", "language", "message"],
-      additionalProperties: false,
     },
-  },
-  {
-    name: "propose_payout",
-    description:
-      "Propose releasing this cycle's pot to the member whose turn it is. Fails unless every member has paid. Does NOT send money; the treasurer must approve it in the app.",
-    input_schema: {
-      type: "object",
-      properties: { reason: { type: "string", description: "One sentence for the treasurer explaining why it is ready." } },
-      required: ["reason"],
-      additionalProperties: false,
+    {
+      name: "propose_payout",
+      description: "Put this cycle's payout in front of Rudo for release. Refuses unless every member has paid. Moves no money.",
+      input_schema: {
+        type: "object",
+        properties: { club_id, reason: { type: "string", description: "One short sentence for Rudo on why it's ready." } },
+        required: ["club_id", "reason"],
+        additionalProperties: false,
+      },
     },
-  },
-  {
-    name: "check_payout_status",
-    description: "Check a cycle's payout status with PayPal Payouts. Defaults to the current cycle; pass an earlier cycle number to check a payout already sent.",
-    input_schema: {
-      type: "object",
-      properties: { cycle: { type: "integer" } },
-      additionalProperties: false,
+    {
+      name: "check_payout_status",
+      description: "Check a payout with PayPal Payouts. Defaults to the current cycle; pass an earlier cycle number for one already sent.",
+      input_schema: { type: "object", properties: { club_id, cycle: { type: "integer" } }, required: ["club_id"], additionalProperties: false },
     },
-  },
-];
+  ];
+}
 
 export interface AgentAction {
   tool: string;
-  input: unknown;
+  input: Record<string, unknown>;
   ok: boolean;
   summary: string;
 }
 
 async function runTool(name: string, input: Record<string, unknown>, baseUrl: string): Promise<{ result: unknown; summary: string }> {
+  const clubId = String(input.club_id ?? "");
+  const clubName = () => loadClub(clubId).name;
+  const memberName = (id: unknown) => loadClub(clubId).members.find((m) => m.id === id)?.name.split(" ")[0] ?? String(id);
   switch (name) {
-    case "get_club_status": {
-      const s = statusSummary();
-      return { result: s, summary: `Read club status (${s.members_paid} paid)` };
+    case "list_circles": {
+      const o = overview();
+      return { result: o, summary: `Read ${o.length} circles` };
+    }
+    case "get_circle": {
+      const s = statusSummary(clubId);
+      return { result: s, summary: `${s.club}: ${s.members_paid} paid` };
     }
     case "verify_payment": {
-      const r = await verifyContribution(String(input.member_id));
-      return { result: r, summary: `Verified ${input.member_id} with PayPal` };
+      const r = await verifyContribution(clubId, String(input.member_id));
+      return { result: r, summary: `Checked ${memberName(input.member_id)} with PayPal` };
     }
     case "send_reminder": {
       const memberId = String(input.member_id);
-      const club = loadClub();
-      if (!club.members.some((m) => m.id === memberId)) throw new Error(`Unknown member "${memberId}"`);
-      const link = `${baseUrl}/pay/${memberId}`;
-      const text = String(input.message).replaceAll("{{PAY_LINK}}", link);
-      const nudge = addNudge(memberId, text.includes(link) ? text : `${text}\n${link}`, input.language as Language);
-      return { result: { queued: true, nudge_id: nudge.id }, summary: `Reminder to ${memberId} (${input.language})` };
+      const link = `${baseUrl}/pay/${clubId}/${memberId}`;
+      const raw = String(input.message);
+      const text = raw.includes("{{PAY_LINK}}") ? raw.replaceAll("{{PAY_LINK}}", link) : `${raw}\n${link}`;
+      addReminder(clubId, memberId, text, input.language as Language);
+      return { result: { sent: true }, summary: `Reminded ${memberName(memberId)} in ${input.language}` };
     }
     case "propose_payout": {
-      const r = proposePayout(String(input.reason));
-      return { result: r, summary: r.ok ? `Proposed payout to ${r.recipient}` : "Payout not ready" };
+      const r = proposePayout(clubId, String(input.reason));
+      return { result: r, summary: r.ok ? `Payout for ${clubName()} ready for you` : `${clubName()} payout not ready` };
     }
     case "check_payout_status": {
-      const r = await refreshPayoutStatus(typeof input.cycle === "number" ? input.cycle : undefined);
-      return { result: r, summary: `Checked payout for cycle ${r.cycle}` };
+      const r = await refreshPayoutStatus(clubId, typeof input.cycle === "number" ? input.cycle : undefined);
+      return { result: r, summary: `Checked ${clubName()} payout` };
     }
     default:
       throw new Error(`Unknown tool ${name}`);
@@ -126,14 +130,21 @@ export type AgentEvent =
   | { type: "step"; id: string; tool: string; input: Record<string, unknown>; status: "running" }
   | { type: "step"; id: string; tool: string; input: Record<string, unknown>; status: "done" | "error"; summary: string };
 
+export const BRIEFING_PROMPT =
+  "Good morning. Go through all my circles. Following each circle's own rules, send any reminders that are due and propose any payouts that are ready. Then brief me in at most 4 short bullets, most urgent first: what you did, and what needs me.";
+
 export async function runAgent(
   history: ChatTurn[],
   baseUrl: string,
   onEvent: (e: AgentEvent) => void = () => {},
+  context: { clubId?: string } = {},
 ): Promise<{ reply: string; actions: AgentAction[] }> {
-  const client = new Anthropic();
+  const client = new Anthropic({ timeout: 90_000, maxRetries: 1 });
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const actions: AgentAction[] = [];
+  const system = context.clubId
+    ? `${SYSTEM}\n\nRudo is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless she says otherwise.`
+    : SYSTEM;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     onEvent({ type: "thinking" });
@@ -142,17 +153,16 @@ export async function runAgent(
       max_tokens: 16000,
       // Gateways may not forward newer request fields; only send them first-party.
       ...(VIA_GATEWAY ? {} : { thinking: { type: "adaptive" as const }, output_config: { effort: "medium" as const } }),
-      system: SYSTEM,
-      tools,
+      system,
+      tools: tools(),
       messages,
     });
 
     if (response.stop_reason === "refusal") {
-      return { reply: "Sorry, I can't help with that request.", actions };
+      return { reply: "I can't help with that one.", actions };
     }
 
     messages.push({ role: "assistant", content: response.content });
-
     if (response.stop_reason === "pause_turn") continue;
 
     const toolUses = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
@@ -162,7 +172,7 @@ export async function runAgent(
         .map((b) => b.text)
         .join("\n")
         .trim();
-      return { reply: reply || "(no reply)", actions };
+      return { reply: reply || "Done.", actions };
     }
 
     const results: Anthropic.ToolResultBlockParam[] = [];
@@ -183,5 +193,5 @@ export async function runAgent(
     }
     messages.push({ role: "user", content: results });
   }
-  return { reply: "I ran out of steps on that one. Try asking again more specifically.", actions };
+  return { reply: "That took more steps than I allow myself. Try asking about one circle at a time.", actions };
 }

@@ -89,7 +89,7 @@ export default function PotRing({
                   <circle cx={pos.x} cy={pos.y} r={25} fill={toneFor(m)} stroke={late ? "var(--coral)" : "var(--surface)"} strokeWidth={late ? 3 : 3} />
                   <text x={pos.x} y={pos.y + 5} textAnchor="middle" className="marker-initials">{initials(m.name)}</text>
                   {status === "paid" && (
-                    <g transform={`translate(${pos.x + 17} ${pos.y - 19})`}>
+                    <g transform={`translate(${pos.x - Math.cos(screenAngle) * 24} ${pos.y - Math.sin(screenAngle) * 24})`}>
                       <circle r="9" fill="var(--jade)" stroke="var(--surface)" strokeWidth="2" />
                       <path d="M-4 0 L-1 3 L4 -3" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     </g>

@@ -9,7 +9,21 @@ export const COUNTRY: Record<string, { flag: string; code: string }> = {
   Johannesburg: { flag: "🇿🇦", code: "ZA" },
   Pretoria: { flag: "🇿🇦", code: "ZA" },
   London: { flag: "🇬🇧", code: "UK" },
+  Leicester: { flag: "🇬🇧", code: "UK" },
+  Dublin: { flag: "🇮🇪", code: "IE" },
+  Dallas: { flag: "🇺🇸", code: "US" },
+  Soweto: { flag: "🇿🇦", code: "ZA" },
+  Mahikeng: { flag: "🇿🇦", code: "ZA" },
 };
+
+export function countriesOf(cities: string[]) {
+  const seen = new Map<string, string>();
+  for (const c of cities) {
+    const k = COUNTRY[c];
+    if (k && !seen.has(k.code)) seen.set(k.code, k.flag);
+  }
+  return [...seen.values()];
+}
 
 /** Each member gets a stable hue drawn from the palette's warm/cool set. */
 const AVATAR_TONES = ["#24307A", "#0E8A63", "#B4432F", "#8A5A00", "#5B3E96", "#1F6F8B"];

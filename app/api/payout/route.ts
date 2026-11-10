@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { approvePayout } from "@/lib/club";
 import { fail } from "@/lib/http";
 
-/** Treasurer approval. The agent has no tool that reaches this route. */
-export async function POST() {
+/** Treasurer release. The agent has no tool that reaches this route. */
+export async function POST(req: Request) {
   try {
-    return NextResponse.json(await approvePayout());
+    const { clubId } = (await req.json()) as { clubId: string };
+    return NextResponse.json(await approvePayout(clubId));
   } catch (err) {
     return fail(err);
   }

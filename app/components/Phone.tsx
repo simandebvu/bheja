@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Member, Nudge } from "@/lib/types";
-import { Avatar, firstName } from "./ui";
+import { Avatar, firstName, initials } from "./ui";
 
 const URL_RE = /(https?:\/\/\S+)/;
 
@@ -69,7 +69,7 @@ export default function Phone({ members, outbox, clubName }: { members: Member[]
       <div className="phone">
         <div className="phone-notch" aria-hidden />
         <div className="wa-head">
-          <span className="wa-group" aria-hidden>UC</span>
+          <span className="wa-group" aria-hidden>{initials(clubName)}</span>
           <div>
             <b>{clubName}</b>
             <span>{member ? `to ${member.name} · ${member.language}` : "treasurer bot"}</span>
@@ -78,18 +78,20 @@ export default function Phone({ members, outbox, clubName }: { members: Member[]
         <div className="wa-body">
           {thread.length === 0 ? (
             <div className="wa-empty">
-              <p>Reminders the agent sends will arrive here, in each member&apos;s own language.</p>
-              <p className="hint">Try &ldquo;Remind everyone who&apos;s late&rdquo;</p>
+              <p>Reminders, receipts and payout notices arrive here, in each member&apos;s own language.</p>
+              <p className="hint">Ask the agent to remind whoever&apos;s late</p>
             </div>
           ) : (
             thread.map((n) => {
               const { main, en } = splitMessage(n.message);
               const link = n.message.match(URL_RE)?.[1];
               return (
-                <div key={n.id} className="wa-msg">
+                <div key={n.id} className={`wa-msg wa-${n.kind ?? "reminder"}`}>
+                  {n.kind === "payout" && <span className="wa-tag">Payout</span>}
+                  {n.kind === "receipt" && <span className="wa-tag">Receipt</span>}
                   <div className="wa-bubble">
                     <Body text={showEn && en ? en : main.replace(URL_RE, "").replace(/\s+([.!?])/g, "$1").trim()} />
-                    {link && (
+                    {link && n.kind !== "receipt" && n.kind !== "payout" && (
                       <div className="wa-card">
                         <span className="wa-card-label">Pay your contribution</span>
                         <span className="wa-card-host">{link.replace(/^https?:\/\//, "").split("/")[0]}</span>
