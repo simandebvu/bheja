@@ -50,6 +50,8 @@ Rotapot gives the treasurer an AI assistant for the chasing and the bookkeeping,
 - **PayPal.**
   - **Orders v2** handles each contribution: create the order, capture it, and look up its status to check a member's "I already paid".
   - The **PayPal JS SDK** puts the checkout buttons on the member's page.
+  - **PayPal Agent Toolkit** (`@paypal/agent-toolkit`) gives the agent a short allowlist of PayPal's own tools: it searches the PayPal transaction ledger and looks up orders to reconcile a circle's books, and drafts and sends a PayPal invoice when a member asks for one. Order creation, payment, refunds and disputes are deliberately left off, so the agent still cannot move money.
+  - **Webhooks** (`PAYMENT.CAPTURE.COMPLETED`, `CHECKOUT.ORDER.APPROVED`), signature-verified with PayPal, book a contribution even if the member closes the tab before the browser capture finishes.
   - **Payouts v1** releases the pot to whoever's turn it is. Each payout uses a fixed batch ID per cycle, and each capture uses a request ID, so a double tap can't pay twice.
 - **Guardrails in code, not just in the prompt:**
   - A payout can only be proposed once every member has paid.
@@ -84,12 +86,11 @@ The biggest lesson for me was how much of the work sits outside the model. The m
 
 - Real WhatsApp delivery and inbound messages through the WhatsApp Business API.
 - Local payment rails alongside PayPal (for example PayShap in South Africa). PayPal doesn't settle in rand, so the demo runs in US dollars, which fits Zimbabwe and the diaspora.
-- Webhook-driven reconciliation, so a capture is booked even if the member closes the tab.
 - Explore a portable payment record that members can choose to share, with proper consent and validation before any use in financial decisions.
 - Native-speaker review of every message template, and more languages: isiXhosa, Tshivenda, Xitsonga, chiChewa.
 
 ## Built with
-nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal-orders-api, paypal-payouts-api, paypal-js-sdk, better-auth, resend, sqlite, node.js, caddy
+nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal-agent-toolkit, paypal-webhooks, paypal-orders-api, paypal-payouts-api, paypal-js-sdk, better-auth, resend, sqlite, node.js, caddy
 
 ---
 
