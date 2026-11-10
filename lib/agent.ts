@@ -12,6 +12,7 @@ import {
   verifyContribution,
 } from "./club";
 import { loadClub, loadDb } from "./db";
+import { loadPayPalTools } from "./paypal-agent-tools";
 import { LANGUAGES, type Language } from "./types";
 
 // Point ANTHROPIC_BASE_URL at an Anthropic-compatible gateway (e.g. a LiteLLM
@@ -129,6 +130,37 @@ function tools(): Anthropic.Tool[] {
   ];
 }
 
+const PAYPAL_TOOLKIT_SYSTEM = `PayPal tools (sandbox) are available: list_transactions, get_order, create_invoice, send_invoice, get_invoice, generate_invoice_qr_code. To reconcile a circle's books, call list_transactions over the cycle window and match each transaction's custom field (every contribution is created with custom_id "<club_id>:<cycle number>:<member_id>"), amount and payer to that cycle's contributions; report any mismatch plainly (missing, wrong amount, unknown payer). ${
+  process.env.PAYPAL_INVOICER_EMAIL
+    ? `If a member asks for a PayPal invoice, offer one: create_invoice then send_invoice, with invoicer email ${process.env.PAYPAL_INVOICER_EMAIL}. Invoices only request payment; you still never move money.`
+    : "Do not offer PayPal invoices."
+}`;
+
+const BRIEFING_PAYPAL_NOTE = " Where you can, reconcile against PayPal: make at most one list_transactions call for the whole briefing.";
+
+function payPalSummary(name: string, input: Record<string, unknown>): string {
+  switch (name) {
+    case "list_transactions":
+      return "Searched PayPal transactions";
+    case "get_order":
+      return "Looked up a PayPal order";
+    case "create_invoice": {
+      const r = (input.recipient ?? input.primary_recipients ?? input.billing_info) as unknown;
+      const first = Array.isArray(r) ? r[0] : r;
+      const o = (first ?? {}) as Record<string, unknown>;
+      const nested = (o.billing_info ?? {}) as Record<string, unknown>;
+      const who = String(o.email_address ?? o.email ?? nested.email_address ?? o.name ?? "a member");
+      return `Drafted a PayPal invoice for ${who}`;
+    }
+    case "send_invoice":
+      return "Sent a PayPal invoice";
+    case "generate_invoice_qr_code":
+      return "Made an invoice QR code";
+    default:
+      return `Used PayPal tool ${name}`;
+  }
+}
+
 export interface AgentAction {
   tool: string;
   input: Record<string, unknown>;
@@ -211,9 +243,16 @@ export async function runAgent(
   const client = new Anthropic({ timeout: 90_000, maxRetries: 1 });
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const actions: AgentAction[] = [];
+  const pp = await loadPayPalTools();
+  if (pp) {
+    const last = messages[messages.length - 1];
+    if (last?.role === "user" && last.content === BRIEFING_PROMPT) last.content = BRIEFING_PROMPT + BRIEFING_PAYPAL_NOTE;
+  }
+  const baseSystem = pp ? `${SYSTEM}\n\n${PAYPAL_TOOLKIT_SYSTEM}` : SYSTEM;
+  const allTools = [...tools(), ...(pp?.tools ?? [])];
   const system = context.clubId
-    ? `${SYSTEM}\n\nthe treasurer is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless they say otherwise.`
-    : SYSTEM;
+    ? `${baseSystem}\n\nthe treasurer is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless they say otherwise.`
+    : baseSystem;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     onEvent({ type: "thinking" });
@@ -223,7 +262,7 @@ export async function runAgent(
       // Gateways may not forward newer request fields; only send them first-party.
       ...(VIA_GATEWAY ? {} : { thinking: { type: "adaptive" as const }, output_config: { effort: "medium" as const } }),
       system,
-      tools: tools(),
+      tools: allTools,
       messages,
     });
 
@@ -249,6 +288,15 @@ export async function runAgent(
       const input = (tu.input ?? {}) as Record<string, unknown>;
       onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "running" });
       try {
+        if (pp?.names.has(tu.name)) {
+          const { result, isError } = await pp.run(tu.name, input);
+          const body = typeof result === "string" ? result : JSON.stringify(result);
+          const summary = isError ? `PayPal could not complete that (${tu.name})` : payPalSummary(tu.name, input);
+          onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: isError ? "error" : "done", summary });
+          actions.push({ tool: tu.name, input, ok: !isError, summary });
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: body, ...(isError ? { is_error: true } : {}) });
+          continue;
+        }
         const { result, summary } = await runTool(tu.name, input, baseUrl);
         onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "done", summary });
         actions.push({ tool: tu.name, input, ok: true, summary });

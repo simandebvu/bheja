@@ -31,6 +31,10 @@ Rotapot is a single Next.js application with a React dashboard, member checkout 
 
 There is no `release_payout` agent tool. The dashboard invokes a separate approval route. This separation limits the model’s available actions; it is **not** a substitute for production authentication and server-side authorization.
 
+## PayPal Agent Toolkit
+
+Behind `PAYPAL_AGENT_TOOLKIT=1` (and PayPal credentials), `lib/paypal-agent-tools.ts` loads the official `@paypal/agent-toolkit` (Bedrock export, framework-free) and maps an allowlist into the agent's tool list: `list_transactions`, `get_order`, `create_invoice`, `send_invoice`, `get_invoice`, `generate_invoice_qr_code`. The allowlist is explicit because the toolkit can also pay orders, refund and handle disputes; none of that is enabled, so the agent cannot move money. The toolkit is forced into sandbox mode (it defaults to live), is constructed fresh per agent run (its token is cached and never refreshed), and its errors, which arrive as double-encoded JSON strings, are unwrapped into tool errors. These tools are not exposed over the MCP endpoint, and the contribution/payout path in `lib/paypal.ts` and `lib/club.ts` is unchanged.
+
 ## Contribution and payout lifecycle
 
 1. The member page requests an order for the current amount due: either the remaining contribution or the next approved instalment.

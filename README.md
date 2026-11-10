@@ -107,6 +107,10 @@ Signed member payment links work without login, expire after 30 days, and only a
 
 For a quick judge walkthrough with one inbox, use **Explore sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
 
+## PayPal Agent Toolkit (optional)
+
+Set `PAYPAL_AGENT_TOOLKIT=1` (with sandbox credentials) and the in-app agent also gets a small allowlist of tools from the official `@paypal/agent-toolkit`: search transactions and get an order (to reconcile a circle's books against PayPal), and create, send and QR-code an invoice (set `PAYPAL_INVOICER_EMAIL` to allow invoices). Order creation, payment, refunds and disputes are deliberately not enabled, so the agent still cannot move money. The toolkit runs in sandbox mode only and is not exposed through the MCP endpoint.
+
 ## How the pieces fit
 
 ![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)
