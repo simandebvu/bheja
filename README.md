@@ -38,6 +38,8 @@ npm run dev                  # http://localhost:3000
 
 Getting PayPal sandbox keys: open developer.paypal.com, go to **Apps & Credentials** (Sandbox), choose **Create App**, then copy the Client ID and Secret. To pay on the checkout pages, log in with the sandbox *personal* account listed under **Testing Tools → Sandbox Accounts**.
 
+**Paying in the sandbox:** on a member's pay page choose **Debit or Credit Card** and pay as a guest with test card `4111 1111 1111 1111`, any future expiry (e.g. 12/30), CVV `123`, and a US billing address. Then choose **Pay now as guest**, not "Create Account". Or log in with a sandbox *personal* account. The page asks PayPal for a US buyer (`buyer-country=US`, sandbox only) so testers outside the US see the full checkout.
+
 **Reset demo** (top right) restores the seed data: cycle 3 of 6, three of six members paid, three days overdue.
 
 ## How it works
