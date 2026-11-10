@@ -16,6 +16,8 @@ These clubs mostly run on WhatsApp groups, notebooks and trust. The treasurer ch
 - **Collect.** Every member gets a personal PayPal checkout link (Orders v2). The page greets them in their own language and shows when their turn comes.
 - **Chase, kindly.** Reminders are written in Shona, Ndebele, isiZulu, Sesotho, Setswana or English, with a pay link. The agent never sends a member two reminders within 12 hours, and some circles forbid reminders before the due date.
 - **Verify, don't trust.** "I already paid" gets checked against PayPal. If a checkout was approved but never captured, the agent captures it.
+- **Members talk back.** In the phone view you can reply as a member, in their language: "I already paid", "can I pay half now?". The agent checks PayPal, reads their track record, answers them in their language, and can propose an instalment plan that the treasurer approves or declines. Members on a plan pay the right instalment from the same link.
+- **Trust passport.** Every member's payment record across all their circles (years saving, on-time rate, streak, a dot for every contribution). Tap anyone in a circle to see theirs. This is the moat: a payment history that people with no credit file have never had on paper, and the agent uses it to judge how to treat late payers.
 - **Human in the loop.** The agent can only *propose* a payout. Money moves (PayPal Payouts v1) only when the treasurer taps **Release**. The agent has no tool that can send money. Then the circle turns to the next person, and the recipient gets a WhatsApp-style notice.
 
 ## Run it
@@ -72,14 +74,15 @@ Click **Reset demo** first. The briefing runs again the next time the circles pa
 
 1. **(0:00) Sign in.** "Rudo is treasurer of three savings circles across five countries. Millions of Africans save like this, on WhatsApp and trust."
 2. **(0:15) The briefing runs by itself.** Let the trace play: it reads each circle, writes to Sipho in isiZulu, Thandiwe in Ndebele and Lerato in Sesotho, skips Soweto because its rules say not before the due date, and puts Leicester's US$500 up for approval.
-3. **(0:50) Leicester.** Open the navy "ready to release" card. Show the ring: all five paid. Tap **Release US$500**. PayPal Payouts fires, the card turns green with the batch ID, the circle *turns* to Tatenda, and Farai's phone shows "Makorokoto Farai!".
+3. **(0:50) Leicester.** Open the navy "ready to release" card. Show the ring: all five paid. Tap **Release US$500**. PayPal Payouts fires, the card turns green with the batch ID, gold pours round the ring into Farai, the circle *turns* to Tatenda, and Farai's phone shows "Makorokoto Farai!".
 4. **(1:30) Ubuntu Circle.** Show the phone tabs with the three reminders in three languages (toggle "Show English"). Open Thandiwe's pay link on a phone and pay with PayPal sandbox; on the dashboard her segment fills gold and a receipt lands on her phone.
-5. **(2:10) Trust.** Ask "Sipho says the money's already sent. Can you check?" The agent checks PayPal instead of taking his word for it.
+5. **(2:05) Members talk back.** On Sipho's phone, tap the suggested isiZulu reply ("can I pay half now, the rest Friday?") and send. The agent checks his record (78% on time), answers him in isiZulu, and a plan request appears for Rudo. Approve it, and tap Thandiwe's name to show her trust passport: "Rock solid", 37 of 38 on time.
 6. **(2:40) Close.** "An AI treasurer that does the chasing and the bookkeeping, in your members' own languages, and never moves money without you."
 
 ## Honest limitations
 
 - Reminders go to an in-app outbox. Sending them for real needs the WhatsApp Business API, which is the obvious next step.
 - PayPal does not support ZAR as a transaction currency, so the club runs in USD. That fits Zimbabwe and the diaspora; South African members would want local rails (e.g. PayShap) later.
-- The fixed receipt and payout messages (lib/messages.ts) need a native speaker's check before real use.
+- The fixed receipt and payout messages (lib/messages.ts) and the sample member replies (app/components/Phone.tsx) need a native speaker's check before real use.
+- Payment histories before the demo cycle are seeded (lib/db.ts) to show what the trust passport looks like with years of data.
 - Demo sign-in only (no real accounts), single-process JSON store: this is a demo, not production.
