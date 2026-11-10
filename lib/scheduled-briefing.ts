@@ -16,6 +16,11 @@ function positive(value: string | undefined, fallback: number) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/** Emails whose sample circles still earn a scheduled run (e.g. the judge account). */
+function sampleAccounts() {
+  return new Set((process.env.CRON_SAMPLE_ACCOUNTS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
+}
+
 /** Verified accounts, read straight from the Better Auth SQLite file. */
 export async function listVerifiedAccounts(): Promise<CronAccount[]> {
   await getAuth(); // ensures the schema exists
@@ -47,7 +52,8 @@ export async function runScheduledBriefings(opts: {
     try {
       await accountContext.run(account, async () => {
         const db = loadDb();
-        if (!db.clubs.some((c) => !c.sample && c.status !== "draft")) { summary.skipped++; return; }
+        const samplesCount = sampleAccounts().has((account.email ?? "").toLowerCase());
+        if (!db.clubs.some((c) => (samplesCount || !c.sample) && c.status !== "draft")) { summary.skipped++; return; }
         const last = db.briefing ? Date.parse(db.briefing.at) : NaN;
         if (Number.isFinite(last) && now.getTime() - last < minMs) { summary.skipped++; return; }
         const result = await runner(opts.origin);
