@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import type { invitationPreview } from "@/lib/invitations";
-import { LogoMark } from "@/app/components/ui";
+import { LogoMark, longDate } from "@/app/components/ui";
 import CirclePreview from "@/app/components/CirclePreview";
 
 type Preview = ReturnType<typeof invitationPreview>;
@@ -19,7 +19,7 @@ export default function InvitationPage() {
   }, [token]);
   const next = encodeURIComponent(`/join/${token}`);
   return <main className="gather-page"><header className="gather-header"><Link href="/" className="brand"><LogoMark /><span className="wordmark">rotapot</span></Link><span className="env-pill">A private invitation</span></header>
-    {!invite ? <section className="invitation-error"><h1>{error ? "Let's find your chair." : "Opening your invitation…"}</h1><p role="status">{error || "One moment."}</p><Link href="/circles">Go to my circles →</Link></section> : <div className="gather-grid"><section className="gather-work"><span className="eyebrow">{invite.treasurer} saved you a chair</span><h1>{invite.memberName.split(" ")[0]}, you're part of this.</h1><p className="gather-intro">Welcome to <b>{invite.name}</b>. {invite.purpose}</p><div className="review-promise"><span>The promise you're joining</span><div><b>US${Number(invite.amount)}<small>each / month</small></b><b>US${Number(invite.pot)}<small>your turn's pot</small></b><b>{String(invite.turn).padStart(2, "0")}<small>your turn</small></b></div><p>First contributions due <b>{invite.firstDue}</b></p></div>
+    {!invite ? <section className="invitation-error"><h1>{error ? "Let's find your chair." : "Opening your invitation…"}</h1><p role="status">{error || "One moment."}</p><Link href="/circles">Go to my circles →</Link></section> : <div className="gather-grid"><section className="gather-work"><span className="eyebrow">{invite.treasurer} saved you a chair</span><h1>{invite.memberName.split(" ")[0]}, you're part of this.</h1><p className="gather-intro">Welcome to <b>{invite.name}</b>. {invite.purpose}</p><div className="review-promise"><span>The promise you're joining</span><div><b>US${Number(invite.amount)}<small>each / month</small></b><b>US${Number(invite.pot)}<small>your turn's pot</small></b><b>{String(invite.turn).padStart(2, "0")}<small>your turn</small></b></div><p>First contributions due <b>{longDate(invite.firstDue)}</b></p></div>
       <h2 className="section-title">Everyone on the same page.</h2><ul className="circle-rules">{invite.rules.map((rule) => <li key={rule}>{rule}</li>)}</ul>
       <p className="promise-note">This is a PayPal sandbox circle. No real money moves. When contributions open, use a PayPal sandbox buyer account.</p>
       {!session ? <div className="join-actions"><p>This chair is reserved for <b>{invite.emailHint}</b>. Verify that email to join.</p><Link className="primary-action" href={`/sign-up?next=${next}`}>Create an account & join →</Link><Link href={`/?next=${next}`}>Already have an account? Sign in</Link></div> : <form className="gather-form" onSubmit={async (event) => {

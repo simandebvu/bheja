@@ -29,9 +29,33 @@ function loadSdk(clientId: string): Promise<PayPalNamespace> {
   });
 }
 
-export default function PayButtons({ clubId, memberId, clientId, amount, accessToken }: { accessToken?: string; clubId: string; memberId: string; clientId: string | null; amount: string }) {
+/** Sandbox-only helper so a tester reaching PayPal's login knows what to type. */
+function SandboxBuyer({ buyer }: { buyer?: { email: string; password: string } | null }) {
+  const [copied, setCopied] = useState("");
+  const copy = async (label: string, value: string) => {
+    try { await navigator.clipboard.writeText(value); setCopied(label); window.setTimeout(() => setCopied(""), 1500); } catch { /* clipboard blocked: the value is still visible */ }
+  };
+  return (
+    <details className="pay-test">
+      <summary>Testing? How to pay in the sandbox</summary>
+      {buyer && (
+        <>
+          <p>Log in at PayPal with this sandbox buyer (fake money only):</p>
+          <dl>
+            <dt>Email</dt><dd><code>{buyer.email}</code><button type="button" onClick={() => copy("email", buyer.email)}>{copied === "email" ? "Copied" : "Copy"}</button></dd>
+            <dt>Password</dt><dd><code>{buyer.password}</code><button type="button" onClick={() => copy("password", buyer.password)}>{copied === "password" ? "Copied" : "Copy"}</button></dd>
+          </dl>
+        </>
+      )}
+      <p>{buyer ? "Or pay" : "Pay"} as a guest with a <a href="https://developer.paypal.com/tools/sandbox/card-testing/" target="_blank" rel="noreferrer">PayPal sandbox test card</a>.</p>
+    </details>
+  );
+}
+
+export default function PayButtons({ clubId, memberId, clientId, amount, accessToken, sandboxBuyer }: { accessToken?: string; clubId: string; memberId: string; clientId: string | null; amount: string; sandboxBuyer?: { email: string; password: string } | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [done, setDone] = useState(false);
+  const [receipt, setReceipt] = useState<{ at: string; ref?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
@@ -42,6 +66,7 @@ export default function PayButtons({ clubId, memberId, clientId, amount, accessT
     const res = await fetch(`/api/paypal/orders/${encodeURIComponent(orderId)}/capture`, { method: "POST", headers: accessToken ? { "x-rotapot-pay-access": accessToken } : {} });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "We couldn't confirm your payment. Please try again.");
+    setReceipt({ at: new Date().toISOString(), ref: data.captureId });
     setDone(true);
   }
 
@@ -85,7 +110,15 @@ export default function PayButtons({ clubId, memberId, clientId, amount, accessT
     return () => { cancelled = true; window.clearTimeout(timer); buttons?.close?.(); };
   }, [clientId, clubId, memberId, accessToken]);
 
-  const paid = <div key="paid" className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
+  const paidAt = new Date(receipt?.at ?? Date.now()).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  const paid = (
+    <div key="paid" className="pay-ok" role="status">
+      <b>Paid</b>
+      Your US${amount} is in the pot. Your treasurer can see it now.
+      <span className="pay-receipt">{paidAt}{receipt?.ref ? <> · PayPal ref <code>{receipt.ref}</code></> : null}</span>
+      <span className="pay-receipt">Keep this page or take a screenshot as your receipt.</span>
+    </div>
+  );
 
   if (!clientId) {
     if (done) return paid;
@@ -102,7 +135,7 @@ export default function PayButtons({ clubId, memberId, clientId, amount, accessT
               body: JSON.stringify({ clubId, memberId }),
             });
             const data = await res.json();
-            if (res.ok) setDone(true);
+            if (res.ok) { setReceipt({ at: new Date().toISOString() }); setDone(true); }
             else setError(data.error);
             setBusy(false);
           }}
@@ -123,7 +156,9 @@ export default function PayButtons({ clubId, memberId, clientId, amount, accessT
       {!done && <p className="pay-note" role="status">{busy ? "Connecting with PayPal…" : !ready ? (slow ? "PayPal is taking longer than usual. You can continue directly below." : "Loading secure PayPal checkout…") : "PayPal sandbox · no real money moves"}</p>}
       <div key="paypal-buttons" ref={ref} style={done ? { display: "none" } : undefined} />
       {error && !done && <div className="pay-err">{error}</div>}
-      {!done && <button className="pay-mock" disabled={busy} onClick={async () => {
+      {/* The direct-redirect fallback stays available (some in-app browsers block PayPal's popup),
+          but only competes with PayPal's own buttons when they're slow, failed, or we're returning. */}
+      {!done && <button className={ready && !error && !returning.current ? "pay-fallback" : "pay-mock"} disabled={busy} onClick={async () => {
         setBusy(true); setError(null);
         try {
           const query = new URLSearchParams(window.location.search);
@@ -139,8 +174,8 @@ export default function PayButtons({ clubId, memberId, clientId, amount, accessT
           }
         } catch (e) { setError(e instanceof Error ? e.message : "Couldn't open PayPal. Please try again."); }
         finally { setBusy(false); }
-      }}>{returning.current ? "Check payment status" : "Continue directly to PayPal →"}</button>}
-      {!done && <p className="pay-note">Use a PayPal sandbox personal account. No real money moves.</p>}
+      }}>{returning.current ? "Check payment status" : ready && !error ? "PayPal window didn't open? Continue in this tab →" : "Continue directly to PayPal →"}</button>}
+      {!done && <SandboxBuyer buyer={sandboxBuyer} />}
     </>
   );
 }

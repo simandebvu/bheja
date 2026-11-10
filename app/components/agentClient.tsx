@@ -20,8 +20,8 @@ export async function streamAgent(
   try {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok || !res.body) {
-      const data = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
-      on.error(data.error);
+      const data = await res.json().catch(() => ({}));
+      on.error(data.error || "The agent didn't respond. Try again in a moment.");
       return;
     }
     const reader = res.body.getReader();
@@ -43,7 +43,8 @@ export async function streamAgent(
       }
     }
   } catch (e) {
-    on.error(`Couldn't reach the agent: ${String(e)}`);
+    console.error("[rotapot] agent stream failed:", e);
+    on.error("Couldn't reach the agent. Check your connection and try again.");
   }
 }
 

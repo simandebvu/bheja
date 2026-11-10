@@ -79,15 +79,29 @@ export default async function PayPage({ params, searchParams }: { params: Promis
           })}
         </ol>
         <p className="pay-turn">{turnText}</p>
+        <p className="pay-custody">
+          Your payment is held in Rotapot&apos;s PayPal account until all {club.members.length} have paid.
+          Only the treasurer can release the pot, and only to {isRecipient ? "you" : firstName(recipient.name)}.
+        </p>
 
         {contribution?.status === "paid" ? (
-          <div className="pay-ok"><b>All paid up</b>Thank you. Your US${amount} is in the pot.</div>
+          <div className="pay-ok">
+            <b>All paid up</b>Thank you. Your US${amount} is in the pot.
+            {contribution.paidAt && <span className="pay-receipt">Paid {new Date(contribution.paidAt).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}{contribution.paypalCaptureId ? <> · PayPal ref <code>{contribution.paypalCaptureId}</code></> : null}</span>}
+          </div>
         ) : (
-          <PayButtons accessToken={token} clubId={club.id} memberId={member.id} clientId={paypalConfigured() ? process.env.PAYPAL_CLIENT_ID! : null} amount={String(amount)} />
+          <PayButtons
+            accessToken={token}
+            clubId={club.id}
+            memberId={member.id}
+            clientId={paypalConfigured() ? process.env.PAYPAL_CLIENT_ID! : null}
+            amount={String(amount)}
+            sandboxBuyer={process.env.PAYPAL_SANDBOX_BUYER_EMAIL && process.env.PAYPAL_SANDBOX_BUYER_PASSWORD ? { email: process.env.PAYPAL_SANDBOX_BUYER_EMAIL, password: process.env.PAYPAL_SANDBOX_BUYER_PASSWORD } : null}
+          />
         )}
       </div>
       <p className="pay-foot"><Link href="/circles">← Back to my circles</Link></p>
-      <p className="pay-foot">Payments go through PayPal. Rotapot never sees your card details, and the treasurer approves every payout.</p>
+      <p className="pay-foot">Payments go through PayPal. Rotapot never sees your card details.</p>
     </main>
   );
 }

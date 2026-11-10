@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { LANGUAGES, type Club, type Language } from "@/lib/types";
 import CirclePreview from "./CirclePreview";
-import { LogoMark } from "./ui";
+import { LogoMark, longDate } from "./ui";
 
 type Person = { paypalEmail?: string; name: string; email: string; city: string; language: Language };
 type Draft = { name: string; kind: string; purpose: string; contributionAmount: string; firstDue: string; customRule: string; members: Person[] };
@@ -99,7 +99,7 @@ export default function CircleBuilder({ editId }: { editId?: string }) {
             <button type="button" className="add-chair" disabled={draft.members.length >= 20} onClick={() => setDraft((d) => ({ ...d, members: [...d.members, blankPerson()] }))}>＋ Pull up another chair <span>{draft.members.length}/20</span></button>
           </>}
           {step === 3 && <>
-            <div className="review-promise"><span>{draft.kind}</span><h2>{draft.name}</h2><p>{draft.purpose}</p><div><b>US${Number(draft.contributionAmount)}<small>each / month</small></b><b>{draft.members.length}<small>people</small></b><b>US${Number(draft.contributionAmount) * draft.members.length}<small>monthly pot</small></b></div><p>First contributions: <strong>{draft.firstDue}</strong></p></div>
+            <div className="review-promise"><span>{draft.kind}</span><h2>{draft.name}</h2><p>{draft.purpose}</p><div><b>US${Number(draft.contributionAmount)}<small>each / month</small></b><b>{draft.members.length}<small>people</small></b><b>US${Number(draft.contributionAmount) * draft.members.length}<small>monthly pot</small></b></div><p>First contributions: <strong>{longDate(draft.firstDue)}</strong></p></div>
             <h3>The agreed rotation</h3><ol className="review-rotation">{draft.members.map((m, i) => <li key={i}><b>{i + 1}</b><span>{m.name}<small>{m.email} · {m.language}</small></span></li>)}</ol>
             {draft.customRule && <div className="promise-note"><b>Your extra rule</b><p>{draft.customRule}</p></div>}
             <p className="field-help">Everyone gets one turn. Members review and accept the same contribution, date and rules. You launch when every chair is confirmed.</p>

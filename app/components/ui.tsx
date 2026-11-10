@@ -32,6 +32,13 @@ export function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("");
 }
 
+/** "2026-11-24" → "24 November 2026". Accepts a date-only ISO string; returns it unchanged if unparseable. */
+export function longDate(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
 export function firstName(name: string) {
   return name.split(" ")[0];
 }

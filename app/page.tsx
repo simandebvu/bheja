@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
+import { safeNext } from "@/lib/auth-navigation";
 import AuthForm from "./components/AuthForm";
 import { LogoMark, ShweshweDefs } from "./components/ui";
 
@@ -32,6 +35,14 @@ function HeroRing() {
 }
 
 export default function SignIn() {
+  // Signed-in people (including straight after clicking a verification link) skip the form.
+  const { data: session } = authClient.useSession();
+  useEffect(() => {
+    if (!session?.user.emailVerified) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.has("error")) return;
+    window.location.replace(safeNext(query.get("next")));
+  }, [session]);
 
   return (
     <main className="signin">

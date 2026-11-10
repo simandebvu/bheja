@@ -133,8 +133,8 @@ export default function PotRing({
         {/* the money in the middle */}
         <circle cx={C} cy={C} r={R - STROKE / 2 - 8} fill="var(--surface)" />
         <text x={C} y={C - 44} textAnchor="middle" className="pot-eyebrow">IN THE POT</text>
-        <text x={C} y={C + 12} textAnchor="middle" className="pot-amount">${collected}</text>
-        <text x={C} y={C + 40} textAnchor="middle" className="pot-of">of ${target} · {paidCount}/{n} paid</text>
+        <text x={C} y={C + 12} textAnchor="middle" className="pot-amount"><tspan className="pot-cur">US</tspan>${collected}</text>
+        <text x={C} y={C + 40} textAnchor="middle" className="pot-of">of US${target} · {paidCount}/{n} paid</text>
         <text x={C} y={C + 72} textAnchor="middle" className={`pot-status ${allPaid ? "ok" : daysLate > 0 ? "late" : ""}`}>
           {allPaid ? "Ready to release" : daysLate > 0 ? `${daysLate} day${daysLate === 1 ? "" : "s"} overdue` : `Due ${new Date(`${cycle.dueDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}
         </text>

@@ -40,7 +40,7 @@ Built for the **PayPal AI Hackathon 2026** by [Shingirayi Innocent Mandebvu](htt
 
 ## Take the two-minute tour
 
-1. [Open Rotapot](https://rotapot.simakk.co.za) and create an account, verify your email, then sign in.
+1. [Open Rotapot](https://rotapot.simakk.co.za) and create an account and click the verification link; it signs you in.
 2. Let the briefing run. Inspect the actions across Ubuntu, Leicester and Soweto.
 3. Open **Ubuntu Circle**. Try a member’s suggested reply asking to split a contribution, then review the proposed plan as the treasurer.
 4. Open **Leicester Diaspora Round** to see a ready pot and the sandbox payout flow.
@@ -96,7 +96,7 @@ Signed member payment links work without login, expire after 30 days, and only a
 
 ## Start a real circle in the sandbox
 
-1. **Sign up and verify your email.** Sign in, then choose **Start my first circle**.
+1. **Sign up and verify your email.** The link signs you in; choose **Start my own circle**.
 2. **Give it a name.** Choose Stokvel, Mukando, Diaspora round or Savings circle, and describe your shared goal.
 3. **Set the promise.** Pick a monthly USD contribution, the first due date and any extra rule. This version supports 2–20 members and one complete monthly rotation.
 4. **Pull up chairs.** Include yourself, add names/emails/cities/languages, set your own PayPal sandbox payout email, and use the arrows to arrange the payout order. Drafts are saved in the current browser tab while you work.
@@ -107,7 +107,7 @@ Signed member payment links work without login, expire after 30 days, and only a
 
 **Judges:** sign up with any email you can open (verification is real; there is no shared account). To pay as a member, log in at PayPal checkout with the sandbox personal account `sb-bk2d453834129@personal.example.com` / `5">yL-??` (fake money only), or pay as a guest with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
 
-For a quick judge walkthrough with one inbox, use **Explore sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
+For a quick judge walkthrough with one inbox, choose **See it working: open 3 sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
 
 ## Scheduled treasurer
 

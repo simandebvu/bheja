@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { Club } from "@/lib/types";
 import CirclePreview from "@/app/components/CirclePreview";
-import { LogoMark } from "@/app/components/ui";
+import { LogoMark, longDate } from "@/app/components/ui";
 
 type Data = { club: Club; inviteLinks: Record<string, string> };
 export default function SetupCircle() {
@@ -16,8 +16,10 @@ export default function SetupCircle() {
     try {
       const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
       if (res.status === 401) { window.location.assign("/"); return; }
-      if (!res.ok) throw new Error("This circle is no longer available.");
+      if (res.status === 404) throw new Error("This circle is no longer available.");
+      if (!res.ok) throw new Error("Couldn't refresh your circle. Try again.");
       setData(await res.json());
+      setError((prev) => (prev === "Couldn't refresh your circle. Try again." ? "" : prev));
     } catch (err) { setError(err instanceof Error ? err.message : "Couldn't refresh your circle. Try again."); }
   }, [clubId]);
   useEffect(() => { void refresh(); const timer = setInterval(refresh, 5000); return () => clearInterval(timer); }, [refresh]);
@@ -48,7 +50,7 @@ export default function SetupCircle() {
   return <main className="gather-page"><header className="gather-header"><Link href="/circles" className="brand"><LogoMark /><span className="wordmark">rotapot</span></Link><Link href="/circles">← My circles</Link></header>
     <div className="gather-grid"><section className="gather-work">
       <span className="eyebrow">{active ? "Your circle is moving" : "The chairs are set"}</span><h1>{active ? "Let the good go round." : "Now, bring your people in."}</h1><p className="gather-intro">{active ? "Everyone has agreed. Your first round is ready." : `${club.name} is yours. Send each person their invitation. They'll see the promise, the rules, and exactly when it's their turn.`}</p>
-      <div className="gather-checklist"><div className="done"><b>✓</b><span>Circle created<small>{club.name} · US${Number(club.contributionAmount)} each month</small></span></div><div className={joined === club.members.length ? "done" : ""}><b>{joined === club.members.length ? "✓" : "2"}</b><span>Bring everyone in<small>{joined} of {club.members.length} chairs confirmed</small></span></div><div className={active ? "done" : ""}><b>{active ? "✓" : "3"}</b><span>Launch your first round<small>First contributions due {club.firstDue}</small></span></div></div>
+      <div className="gather-checklist"><div className="done"><b>✓</b><span>Circle created<small>{club.name} · US${Number(club.contributionAmount)} each month</small></span></div><div className={joined === club.members.length ? "done" : ""}><b>{joined === club.members.length ? "✓" : "2"}</b><span>Bring everyone in<small>{joined} of {club.members.length} chairs confirmed</small></span></div><div className={active ? "done" : ""}><b>{active ? "✓" : "3"}</b><span>Launch your first round<small>First contributions due {longDate(club.firstDue)}</small></span></div></div>
       {notice && <p className="auth-notice" role="status">{notice}</p>}{error && <p className="err" role="alert">{error}</p>}
       {!active && <div className="setup-actions"><button className="primary-action" disabled={Boolean(busy) || !club.members.some((m) => !m.joinedAt && m.invite?.status !== "sent")} onClick={() => void invite()}>{busy === "all" ? "Sending invitations…" : "Send pending invitations ↗"}</button><Link className="secondary-action" href={`/circles/${club.id}/edit`}>Edit people & promises</Link></div>}
       <ul className="invite-list">{club.members.map((member) => <li key={member.id}><span className={`invite-avatar ${member.joinedAt ? "joined" : ""}`}>{member.joinedAt ? "✓" : member.turn}</span><div className="invite-person"><b>{member.name}</b><small>{member.email || member.paypalEmail}</small><span className={member.joinedAt ? "joined-text" : ""}>{member.joinedAt ? "Chair confirmed" : member.invite?.status === "sent" ? "Invitation sent · waiting for them" : member.invite?.status === "failed" ? "Delivery failed · try again" : member.invite?.status === "sending" ? "Sending…" : "Ready to invite"}</span></div>{!member.joinedAt && !active && <div className="invite-controls"><button className="secondary-action" disabled={Boolean(busy)} onClick={() => void invite(member.id)}>{busy === member.id ? "Sending…" : member.invite?.status === "sent" ? "Resend" : "Send invite"}</button><button className="link-btn" onClick={async () => { try { await navigator.clipboard.writeText(new URL(data.inviteLinks[member.id], window.location.origin).href); setNotice(`Private invitation for ${member.name} copied. Share it only with them; they'll need to verify their email to join.`); } catch { setError("Clipboard access wasn't available. Use Send invite instead."); } }}>Copy private link</button></div>}</li>)}</ul>

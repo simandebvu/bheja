@@ -100,13 +100,13 @@ export default function Phone({
     });
     setBusy(false);
     onChange();
-    if (summary) onAgentNote(`**${firstName(member.name)} replied on WhatsApp.** ${summary}`);
+    if (summary) onAgentNote(`**${firstName(member.name)} replied in the circle inbox.** ${summary}`);
   }
 
   return (
     <section className="phone-col" aria-label="What members see">
       <div className="col-head">
-        <h2>On their phones</h2>
+        <h2 title="A preview of each member's messages. WhatsApp delivery isn't connected in this prototype; messages stay in the circle inbox.">On their phones · preview</h2>
         <label className="toggle">
           <input type="checkbox" checked={showEn} onChange={(e) => setShowEn(e.target.checked)} /> Show English
         </label>
@@ -133,6 +133,7 @@ export default function Phone({
           {thread.length === 0 && !busy ? (
             <div className="wa-empty">
               <p>Reminders, receipts and payout notices arrive here, in each member&apos;s own language. Members can reply, and the agent answers.</p>
+              <p className="wa-empty-note">Preview of the circle inbox. WhatsApp delivery isn&apos;t connected yet.</p>
             </div>
           ) : (
             thread.map((n) => {
@@ -148,11 +149,11 @@ export default function Phone({
                   <div className="wa-bubble">
                     <Body text={text} />
                     {link && n.kind === "reminder" && (
-                      <div className="wa-card">
+                      <a className="wa-card" href={link} target="_blank" rel="noreferrer" aria-label={`Open ${member ? firstName(member.name) : "this member"}'s pay page`}>
                         <span className="wa-card-label">Pay your contribution</span>
                         <span className="wa-card-host">{link.replace(/^https?:\/\//, "").split("/")[0]}</span>
-                        <span className="wa-card-cta">Pay with PayPal</span>
-                      </div>
+                        <span className="wa-card-cta">Pay with PayPal ↗</span>
+                      </a>
                     )}
                     <span className="wa-time">{time(n.createdAt)} {mine ? "✓✓" : ""}</span>
                   </div>

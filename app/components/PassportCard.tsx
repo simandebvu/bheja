@@ -53,7 +53,7 @@ export default function PassportCard({ member, clubs, onClose }: { member: Membe
         {p.circles.map((c) => (
           <section key={c.clubId} className="passport-circle">
             <div className="passport-circle-head">
-              <b>{c.clubName}</b>
+              <b>{c.clubName}{clubs.find((club) => club.id === c.clubId)?.sample && <span className="passport-sample">Sample history</span>}</b>
               <span>{c.onTime} of {c.payments} on time · since {sinceLabel(c.since)}</span>
             </div>
             <div className="dots" aria-label={`Last ${Math.min(36, c.dots.length)} payments`}>
@@ -61,7 +61,8 @@ export default function PassportCard({ member, clubs, onClose }: { member: Membe
             </div>
           </section>
         ))}
-        <p className="passport-foot">Every contribution through Rotapot adds to this record. In time it&apos;s the credit history most members have never had.</p>
+        {p.circles.length > 0 && <p className="dots-legend" aria-hidden><i className="on" /> On time <i className="late" /> Late <i className="latest" /> Latest</p>}
+        <p className="passport-foot">A record of every contribution made through Rotapot, which members can show when it matters. It isn&apos;t a credit score.</p>
       </aside>
     </div>
   );

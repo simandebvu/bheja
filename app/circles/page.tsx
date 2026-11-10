@@ -14,9 +14,10 @@ type Data = { memberships: { id: string; name: string; status: string; amount: s
 
 function clubFallbackDate() { return new Date().toISOString().slice(0, 7); }
 
+/** Shona greeting with its English meaning, so it welcomes rather than puzzles. */
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? "Mangwanani" : h < 17 ? "Masikati" : "Manheru";
+  return h < 12 ? { sn: "Mangwanani", en: "Good morning" } : h < 17 ? { sn: "Masikati", en: "Good afternoon" } : { sn: "Manheru", en: "Good evening" };
 }
 
 function daysLate(due: string) {
@@ -46,7 +47,10 @@ export default function Circles() {
   const [briefedAt, setBriefedAt] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState(false);
   const [running, setRunning] = useState(false);
+  // Briefing failures and page-load failures are shown in different places: a dropped
+  // background poll must never look like the agent failed, and clears on the next success.
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const started = useRef(false);
   const [sampleBusy, setSampleBusy] = useState(false);
 
@@ -56,7 +60,8 @@ export default function Circles() {
       if (res.status === 401) { window.location.assign("/"); return; }
       if (!res.ok) throw new Error("Couldn't load your circles. Please try again.");
       setData(await res.json());
-    } catch { setError("Couldn't load your circles. Check your connection and try again."); }
+      setLoadError(null);
+    } catch { setLoadError("Couldn't load your circles. Check your connection and try again."); }
   }, []);
 
   const runBriefing = useCallback(async () => {
@@ -80,7 +85,7 @@ export default function Circles() {
     (async () => {
       const res = await fetch("/api/clubs", { cache: "no-store" });
       if (res.status === 401) { window.location.assign("/"); return; }
-      if (!res.ok) { setError("Couldn’t load your circles. Please try again."); return; }
+      if (!res.ok) { setLoadError("Couldn’t load your circles. Please try again."); return; }
       const d: Data = await res.json();
       setData(d);
       if (d.briefing) {
@@ -92,7 +97,7 @@ export default function Circles() {
         started.current = true;
         runBriefing();
       }
-    })().catch(() => setError("Couldn’t load your circles. Check your connection and try again."));
+    })().catch(() => setLoadError("Couldn’t load your circles. Check your connection and try again."));
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
   }, [load, runBriefing]);
@@ -104,15 +109,18 @@ export default function Circles() {
       if (!response.ok) throw new Error("Could not load sample circles.");
       setSteps([]); setReply(null); setBriefedAt(null);
       await load();
+      // The briefing starts at the top of the page; take people to it instead of leaving them at the button.
+      window.scrollTo({ top: 0, behavior: "smooth" });
       if (data?.agentReady) void runBriefing();
     } catch { setError("Could not load sample circles. Please try again."); }
     finally { setSampleBusy(false); }
   }
 
   if (!data) {
-    return <main className="loading">{error ? <div><p className="err" role="alert">{error}</p><button className="secondary-action" onClick={() => { setError(null); void load(); }}>Try again</button></div> : <LogoMark size={40} />}</main>;
+    return <main className="loading">{loadError ? <div><p className="err" role="alert">{loadError}</p><button className="secondary-action" onClick={() => { setLoadError(null); void load(); }}>Try again</button></div> : <LogoMark size={40} />}</main>;
   }
 
+  const isEmpty = !data.clubs.length && !(data.memberships ?? []).length;
   const clubs = data.clubs.filter((club) => club.status !== "draft");
   const drafts = data.clubs.filter((club) => club.status === "draft");
   const people = new Set(clubs.flatMap((c) => c.members.map((m) => m.name)));
@@ -130,7 +138,7 @@ export default function Circles() {
           <span className="wordmark">rotapot</span>
         </div>
         <div className="club">
-          <h1>{greeting()}, {session?.user.name.split(" ")[0] || "friend"}</h1>
+          <h1 title={greeting().en}>{greeting().sn}, {session?.user.name.split(" ")[0] || "friend"} <span className="greet-en">{greeting().en}</span></h1>
           <p>{clubs.length ? `${clubs.length} active circles · ${people.size} people · US$${monthly.toLocaleString()} together each month` : drafts.length ? "Your people are gathering. Let’s make it a circle." : "A little each. A lot together."}</p>
         </div>
         <div className="env">
@@ -149,8 +157,9 @@ export default function Circles() {
         </div>
       </header>
 
+      {loadError && <p className="err" role="alert">{loadError}</p>}
       {error && !clubs.length && <p className="err" role="alert">{error}</p>}
-      {!data.clubs.length && !(data.memberships ?? []).length && <section className="first-circle"><div><span className="eyebrow">Every circle starts with one person</span><h2>Yours starts here.</h2><p>Your people already have the trust. Give it a name, a monthly promise, and a place to grow.</p><Link className="primary-action" href="/circles/new">Start my first circle →</Link><span className="field-help">Name it. Set the promise. Invite your people. About three minutes.</span></div><div className="empty-circle-art" aria-hidden><span>You</span><i>＋</i><i>＋</i><i>＋</i><b>A little each.<br />A lot together.</b></div></section>}
+      {isEmpty && <section className="first-circle"><div><span className="eyebrow">Every circle starts with one person</span><h2>Yours starts here.</h2><p>Your people already have the trust. Give it a name, a monthly promise, and a place to grow.</p><div className="first-circle-actions"><button className="primary-action" disabled={sampleBusy} onClick={() => void reset()}>{sampleBusy ? "Opening the samples…" : "See it working: open 3 sample circles →"}</button><Link className="secondary-action" href="/circles/new">Start my own circle</Link></div><span className="field-help">Samples show late payers, a ready payout and the AI treasurer at work. Your own circle takes about three minutes and needs at least one other person.</span></div><div className="empty-circle-art" aria-hidden><span>You</span><i>＋</i><i>＋</i><i>＋</i><b>A little each.<br />A lot together.</b></div></section>}
       {drafts.length > 0 && <section className="draft-section"><div className="section-heading"><h2>Good things are gathering.</h2><span>Circles you're setting up</span></div><div className="draft-grid">{drafts.map((club) => <Link className="draft-card" key={club.id} href={`/circles/${club.id}/setup`}><span className="eyebrow">{club.kind} · gathering</span><h3>{club.name}</h3><p>{club.purpose}</p><div className="draft-chairs">{club.members.map((m) => <span key={m.id} className={m.joinedAt ? "joined" : ""} title={m.name}>{m.joinedAt ? "✓" : m.name[0]}</span>)}</div><footer><span>{club.members.filter((m) => m.joinedAt).length} / {club.members.length} chairs confirmed</span><b>Keep gathering →</b></footer></Link>)}</div></section>}
       {(data.memberships ?? []).length > 0 && <section className="draft-section"><div className="section-heading"><h2>Your seat at the table.</h2><span>Circles you've joined</span></div><div className="draft-grid">{data.memberships.map((membership) => <Link className="draft-card" key={membership.id} href={`/members/${membership.id}`}><span className="eyebrow">Member · {membership.status === "draft" ? "Gathering" : "Active"}</span><h3>{membership.name}</h3><p>US${Number(membership.amount)} each month</p><footer><span>Your contributions & rotation</span><b>My chair →</b></footer></Link>)}</div></section>}
       {clubs.length > 0 && <><section className="briefing" aria-live="polite">
@@ -171,7 +180,7 @@ export default function Circles() {
             {!running && !steps.length && !reply && !data.agentReady && <p className="muted">Add an agent API key to get a briefing.</p>}
           </div>
           <div className="briefing-reply">
-            {error && <p className="err">{error}</p>}
+            {error && <p className="err" role="alert">{error}</p>}
             {reply ? <Markdown text={reply} /> : !error && <p className="muted">The agent reads every circle, sends reminders the rules allow, and puts ready payouts in front of you. Nothing moves money without your tap.</p>}
             {attention.length > 0 && !running && (
               <div className="needs">
@@ -223,8 +232,8 @@ export default function Circles() {
           );
         })}
       </section></>}
+      {!isEmpty && <section className="sample-invitation"><div><span className="eyebrow">Taking a look around?</span><h3>See a circle already in motion.</h3><p>Explore sample contributions, a ready payout and the AI treasurer. Your own circles stay untouched.</p></div><button className="secondary-action" disabled={sampleBusy} onClick={() => void reset()}>{sampleBusy ? "Opening the sample…" : data.clubs.some((c) => c.sample) ? "Refresh sample circles ↻" : "Explore sample circles →"}</button></section>}
       <ConnectAgent />
-      <section className="sample-invitation"><div><span className="eyebrow">Taking a look around?</span><h3>See a circle already in motion.</h3><p>Explore sample contributions, a ready payout and the AI treasurer. Your own circles stay untouched.</p></div><button className="secondary-action" disabled={sampleBusy} onClick={() => void reset()}>{sampleBusy ? "Opening the sample…" : data.clubs.some((c) => c.sample) ? "Refresh sample circles ↻" : "Explore sample circles →"}</button></section>
     </main>
   );
 }

@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 export function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 }
@@ -16,7 +18,20 @@ export async function sendEmail(to: string, title: string, message: string, url:
   });
   if (!response.ok) throw new Error("Email delivery failed. Please try again later.");
 }
+/** Per-request flag set when an auth email fails, so the auth route can report it. */
+export const authEmailDelivery = new AsyncLocalStorage<{ failed: boolean }>();
+
 export async function sendAuthEmail(to: string, url: string, kind: "verify" | "reset") {
+  try {
+    await sendAuthEmailNow(to, url, kind);
+  } catch (err) {
+    const store = authEmailDelivery.getStore();
+    if (store) store.failed = true;
+    throw err;
+  }
+}
+
+async function sendAuthEmailNow(to: string, url: string, kind: "verify" | "reset") {
   await sendEmail(to, kind === "verify" ? "Your circle starts with you." : "Let's get you back in.",
     kind === "verify" ? "One quick step: confirm your email. Then give your circle a name, set your monthly promise, and invite your people.\nThis verification link expires in one hour." : "Choose a new password to get back to your people. This link expires in 30 minutes and works once.",
     url, kind === "verify" ? "Verify my email" : "Reset my password");

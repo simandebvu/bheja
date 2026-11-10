@@ -28,9 +28,13 @@ async function createAuth() {
       sendResetPassword: async ({ user, url }) => { await sendAuthEmail(user.email, url, "reset"); },
     },
     emailVerification: {
+      // better-auth swallows a failed send during sign-up and still returns 200. sendAuthEmail
+      // flags the failure and the auth route adds an `x-rotapot-email: failed` header so the
+      // form can tell the user instead of leaving them waiting for an email that never comes.
       sendOnSignUp: true,
       sendOnSignIn: false,
-      autoSignInAfterVerification: false,
+      // Clicking the link proves the address; don't make people type the password a third time.
+      autoSignInAfterVerification: true,
       expiresIn: 3600,
       sendVerificationEmail: async ({ user, url }) => { await sendAuthEmail(user.email, url, "verify"); },
     },

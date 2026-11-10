@@ -7,8 +7,9 @@ const body = Onest({ subsets: ["latin"], weight: ["400", "500", "600", "700"], v
 const mono = Martian_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", adjustFontFallback: false });
 
 export const metadata: Metadata = {
-  title: "Rotapot",
-  description: "An AI treasurer for stokvels and mukando savings clubs. Collects with PayPal, chases kindly in five languages, pays out only when you say so.",
+  metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
+  title: "Rotapot · The AI treasurer for savings circles",
+  description: "An AI treasurer for stokvels, mukando and diaspora savings circles. Collects with PayPal, reminds kindly in six languages, and pays out only when the treasurer says so.",
 };
 
 export const viewport: Viewport = { themeColor: "#24307A" };

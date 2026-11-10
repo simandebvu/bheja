@@ -1,11 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AgentEvent } from "./agent";
 
+/** Shown to treasurers: plain words, no stack traces or env var names. Details go to the server log. */
+const UNCHANGED = "Anything it finished is saved; nothing else changed.";
 function describeError(err: unknown): string {
-  if (err instanceof Anthropic.AuthenticationError) return "The agent's API key was rejected. Check ANTHROPIC_API_KEY.";
-  if (err instanceof Anthropic.RateLimitError) return "The agent is rate-limited right now. Try again in a moment.";
-  if (err instanceof Anthropic.APIError) return `The model returned an error: ${err.message}`;
-  return err instanceof Error ? err.message : String(err);
+  if (err instanceof Anthropic.AuthenticationError) return `The agent couldn't sign in to its model service. ${UNCHANGED}`;
+  if (err instanceof Anthropic.RateLimitError) return `The agent is busy right now. Try again in a minute. ${UNCHANGED}`;
+  if (err instanceof Anthropic.APIError) return `The agent lost its connection part-way. Try again. ${UNCHANGED}`;
+  return `The agent stopped part-way. Try again. ${UNCHANGED}`;
 }
 
 export function agentConfigured() {

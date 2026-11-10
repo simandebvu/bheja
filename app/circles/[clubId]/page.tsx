@@ -38,6 +38,8 @@ export default function CircleDashboard() {
   const frozen = useRef(false);
   const [passportOf, setPassportOf] = useState<Member | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (frozen.current) return;
@@ -74,32 +76,59 @@ export default function CircleDashboard() {
     // Freeze the screen before the request: a background refresh landing while PayPal
     // is processing would otherwise show the next cycle's empty pot before the pour.
     frozen.current = true;
-    const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId }) });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "PayPal didn't confirm the payout. Nothing was sent. Try again.");
       // Hold the screen on the full pot while the gold pours, then let the circle turn.
       setPouring(true);
       await new Promise((r) => setTimeout(r, 1700));
-      setPouring(false);
-      frozen.current = false;
       setSent(data);
       setNote({
         id: data.batchId,
-        text: `Done. **US$${data.amount}** is on its way to ${data.recipient} through PayPal Payouts, and I've let ${firstName(data.recipient)} know in their circle inbox.${data.next ? ` The circle has turned: next up is **${data.next}**.` : ""}`,
+        text: `Done. **US$${Number(data.amount)}** is on its way to ${data.recipient} through PayPal Payouts, and I've let ${firstName(data.recipient)} know in their circle inbox.${data.next ? ` The circle has turned: next up is **${data.next}**.` : ""}`,
       });
-    } else {
+    } catch (err) {
+      setReleaseError(err instanceof TypeError ? "Couldn't reach Rotapot. Check your connection; nothing was sent." : err instanceof Error ? err.message : "Something went wrong. Nothing was sent.");
+    } finally {
+      setPouring(false);
       frozen.current = false;
-      setReleaseError(data.error);
+      setReleasing(false);
+      void refresh();
     }
-    setReleasing(false);
-    refresh();
+  }
+
+  /** Treasurer puts a fully paid pot up for approval without waiting for the agent. */
+  async function prepare() {
+    setPreparing(true);
+    setReleaseError(null);
+    try {
+      const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId, prepare: true }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Couldn't prepare the payout. Try again.");
+    } catch (err) {
+      setReleaseError(err instanceof TypeError ? "Couldn't reach Rotapot. Check your connection and try again." : err instanceof Error ? err.message : "Couldn't prepare the payout. Try again.");
+    } finally {
+      setPreparing(false);
+      void refresh();
+    }
   }
 
   async function decide(memberId: string, approve: boolean) {
     setDeciding(memberId);
-    await fetch(`/api/clubs/${clubId}/plans`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId, approve }) });
-    setDeciding(null);
-    refresh();
+    setPlanError(null);
+    try {
+      const res = await fetch(`/api/clubs/${clubId}/plans`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId, approve }) });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Couldn't save your answer. Try again.");
+      }
+    } catch (err) {
+      setPlanError(err instanceof TypeError ? "Couldn't reach Rotapot. Check your connection and try again." : err instanceof Error ? err.message : "Couldn't save your answer. Try again.");
+    } finally {
+      setDeciding(null);
+      void refresh();
+    }
   }
 
   async function reset() {
@@ -137,6 +166,8 @@ export default function CircleDashboard() {
   // Right after a release, the screen can still hold the old cycle for a moment: don't
   // flash the Release button again for a payout that has just been sent.
   const awaiting = cycle.payout.status === "awaiting_approval" && !(sent && sent.recipient === recipient.name);
+  // Fully paid but nobody (agent or treasurer) has put it up for approval yet.
+  const allPaid = (cycle.payout.status === "none" || cycle.payout.status === "failed") && !sent && cycle.contributions.every((c) => c.status === "paid");
   const flags = countriesOf(club.members.map((m) => m.city));
 
   return (
@@ -191,27 +222,39 @@ export default function CircleDashboard() {
               </div>
             );
           })}
+          {planError && <p className="err" role="alert">{planError}</p>}
 
-          <div className={`release ${awaiting ? "armed" : sent ? "done" : ""}`}>
+          <div className={`release ${awaiting ? "armed" : sent ? "done" : allPaid ? "ready" : ""}`} aria-live="polite">
             {awaiting ? (
               <>
                 <div className="release-copy">
                   <span className="release-eyebrow">Waiting for your approval</span>
-                  <b>Release US${cycle.payout.amount} to {recipient.name}</b>
+                  <b>Release US${target} to {recipient.name}</b>
                   {cycle.payout.proposedReason && <span className="release-why">{cycle.payout.proposedReason}</span>}
-                  <span className="release-math">{club.members.length} × US${club.contributionAmount} received · sent with PayPal Payouts</span>
+                  <span className="release-math">{club.members.length} × US${Number(club.contributionAmount)} received · sent with PayPal Payouts</span>
                 </div>
                 <button className="release-btn" disabled={releasing} onClick={release}>
-                  {releasing ? "Releasing…" : `Release US$${Number(cycle.payout.amount)}`}
+                  {releasing ? "Releasing…" : `Release US$${target}`}
                 </button>
               </>
             ) : sent ? (
               <div className="release-copy">
                 <span className="release-eyebrow">Released</span>
-                <b>US${sent.amount} sent to {sent.recipient}</b>
+                <b>US${Number(sent.amount)} sent to {sent.recipient}</b>
                 <span className="release-batch">PayPal batch <code>{sent.batchId}</code> · {sent.batchStatus.toLowerCase()}</span>
                 {sent.next && <span className="release-math">The circle has turned. {sent.next} is next.</span>}
               </div>
+            ) : allPaid ? (
+              <>
+                <div className="release-copy">
+                  <span className="release-eyebrow ok">Everyone has paid</span>
+                  <b>US${target} is ready for {recipient.name}</b>
+                  <span className="release-why">Get it ready, check the details, then release it. Only you can send it.</span>
+                </div>
+                <button className="secondary-action" disabled={preparing} onClick={prepare}>
+                  {preparing ? "Getting it ready…" : "Get payout ready →"}
+                </button>
+              </>
             ) : (
               <div className="release-copy">
                 <span className="release-eyebrow">Payout locked</span>
@@ -220,7 +263,7 @@ export default function CircleDashboard() {
                 </span>
               </div>
             )}
-            {releaseError && <p className="err">{releaseError}</p>}
+            {releaseError && <p className="err" role="alert">{releaseError}</p>}
           </div>
 
           <ul className="roster">
@@ -250,8 +293,8 @@ export default function CircleDashboard() {
                     ) : c.plan?.status === "pending" ? (
                       <span className="tag pending">Plan requested</span>
                     ) : (
-                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={state.payLinks[m.id]} target="_blank" rel="noreferrer" title="Open this member's pay page">
-                        {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · pay page ↗
+                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={state.payLinks[m.id]} target="_blank" rel="noreferrer">
+                        {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · Pay as {firstName(m.name)} ↗
                       </a>
                     )}
                   </li>

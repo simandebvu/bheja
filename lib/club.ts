@@ -242,7 +242,7 @@ export function addReminder(clubId: string, memberId: string, message: string, l
 }
 
 /** Agent may only PROPOSE a payout; a human must approve before money moves. */
-export function proposePayout(clubId: string, reason: string) {
+export function proposePayout(clubId: string, reason: string, by: "agent" | "treasurer" = "agent") {
   return updateClub(clubId, (club) => {
     const cycle = currentCycle(club);
     const unpaid = cycle.contributions.filter((c) => c.status !== "paid").map((c) => findMember(club, c.memberId).name);
@@ -251,7 +251,8 @@ export function proposePayout(clubId: string, reason: string) {
     if (cycle.payout.status === "awaiting_approval") return { ok: true, already_waiting: true };
     cycle.payout = { ...cycle.payout, status: "awaiting_approval", proposedReason: reason, proposedAt: new Date().toISOString() };
     const r = findMember(club, cycle.recipientId);
-    logActivity(club, "agent", `Agent proposed releasing US$${cycle.payout.amount} to ${r.name}. Waiting for treasurer approval.`);
+    if (by === "agent") logActivity(club, "agent", `Agent proposed releasing US$${cycle.payout.amount} to ${r.name}. Waiting for treasurer approval.`);
+    else logActivity(club, "system", `Treasurer prepared the US$${cycle.payout.amount} payout to ${r.name}. Waiting for release.`);
     return { ok: true, awaiting_approval: true, recipient: r.name, amount: cycle.payout.amount };
   });
 }

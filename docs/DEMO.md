@@ -14,7 +14,7 @@ The film is about two minutes. The live application is a sandbox prototype with 
 
 ## Walkthrough
 
-1. Create an account, verify your email and sign in. Choose **Explore sample circles** for the two-minute tour, or **Start my first circle** to build your own. The briefing runs across the circles. Read the human-readable progress and the tool trace.
+1. Create an account and click the verification link; it signs you in. Choose **See it working: open 3 sample circles** for the two-minute tour, or **Start my own circle** to build your own. The briefing runs across the circles. Read the human-readable progress and the tool trace.
 2. Open Ubuntu. In the phone panel, choose a member and send the suggested reply requesting a split payment. The agent can read the member’s record and propose a plan. Approve or decline it from the dashboard.
 3. Open the member’s pay link. An approved plan uses the next instalment amount. After a successful contribution, inspect the ring, ledger and receipt.
 4. Open Leicester. If the agent has proposed the ready payout, use Release to invoke the sandbox payout flow. Review the returned batch ID and the next recipient.

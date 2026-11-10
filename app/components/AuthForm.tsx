@@ -6,7 +6,7 @@ import { safeNext } from "@/lib/auth-navigation";
 import { authClient } from "@/lib/auth-client";
 
 type Mode = "login" | "signup" | "forgot" | "reset";
-const headings: Record<Mode, string> = { login: "Welcome back", signup: "Start your circle", forgot: "Forgot your password?", reset: "Choose a new password" };
+const headings: Record<Mode, string> = { login: "Sign in to Rotapot", signup: "Start your circle", forgot: "Forgot your password?", reset: "Choose a new password" };
 
 export default function AuthForm({ mode = "login" }: { mode?: Mode }) {
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export default function AuthForm({ mode = "login" }: { mode?: Mode }) {
     finally { setBusy(false); }
   }
 
-  if (mode === "signup" && notice && canResend) return <div className="signin-card inbox-card"><span className="inbox-symbol" aria-hidden>↗</span><span className="eyebrow">Your first invitation is to yourself</span><h2>Check your inbox.</h2><p>We sent a verification link to <strong>{email}</strong>. Open it, then sign in to {next.startsWith("/join/") ? "take your chair" : "start your circle"}.</p><p className="field-help">The link lasts one hour. Check spam if it hasn't arrived.</p>{error && <p role="alert" className="err">{error}</p>}<p role="status" className="auth-notice">{notice}</p><button className="primary-action" disabled={busy} onClick={resend}>{busy ? "Sending…" : "Send the link again"}</button><div className="auth-links"><Link href={`/?next=${encodeURIComponent(next)}`}>I've verified · sign in →</Link><button className="link-btn" onClick={() => { setNotice(""); setCanResend(false); }}>Use a different email</button></div></div>;
+  if (mode === "signup" && notice && canResend) return <div className="signin-card inbox-card"><span className="inbox-symbol" aria-hidden>↗</span><span className="eyebrow">Your first invitation is to yourself</span><h2>Check your inbox.</h2><p>We sent a verification link to <strong>{email}</strong>. Open it and you&apos;ll be signed in, ready to {next.startsWith("/join/") ? "take your chair" : "start your circle"}.</p><p className="field-help">The link lasts one hour. Check spam if it hasn't arrived.</p>{error && <p role="alert" className="err">{error}</p>}<p role="status" className="auth-notice">{notice}</p><button className="primary-action" disabled={busy} onClick={resend}>{busy ? "Sending…" : "Send the link again"}</button><div className="auth-links"><Link href={`/?next=${encodeURIComponent(next)}`}>I've verified · sign in →</Link><button className="link-btn" onClick={() => { setNotice(""); setCanResend(false); }}>Use a different email</button></div></div>;
 
   return (
     <form className="signin-card" onSubmit={async (event) => {
@@ -52,10 +52,15 @@ export default function AuthForm({ mode = "login" }: { mode?: Mode }) {
           }
           window.location.assign(next);
         } else if (mode === "signup") {
-          const result = await authClient.signUp.email({ name: String(form.get("name") || "").trim(), email, password, callbackURL });
+          let emailFailed = false;
+          const result = await authClient.signUp.email(
+            { name: String(form.get("name") || "").trim(), email, password, callbackURL },
+            { onResponse: (ctx) => { emailFailed = ctx.response.headers.get("x-rotapot-email") === "failed"; } },
+          );
           if (result.error) throw new Error(result.error.message || "Couldn't create your account.");
           setCanResend(true);
           setNotice("Check your email to verify your account, then sign in. Your link expires in one hour.");
+          if (emailFailed) setError("Your account is ready, but the verification email didn't send. Wait a minute, then tap “Send the link again”.");
         } else if (mode === "forgot") {
           const result = await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
           if (result.error) throw new Error(result.error.message || "Couldn't request a reset. Please try again.");
@@ -80,8 +85,9 @@ export default function AuthForm({ mode = "login" }: { mode?: Mode }) {
       {notice && <p className="auth-notice" role="status">{notice}</p>}
       <button type="submit" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Sign in" : mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Update password"}</button>
       {canResend && <button type="button" className="link-btn" disabled={busy} onClick={resend}>Resend verification email</button>}
+      {mode === "login" && <Link className="secondary-action signup-cta" href={`/sign-up?next=${encodeURIComponent(next)}`}>New here? Create a free account →</Link>}
       <div className="auth-links">
-        {mode === "login" ? <><Link href="/forgot-password">Forgot password?</Link><Link href={`/sign-up?next=${encodeURIComponent(next)}`}>Create an account</Link></> : <Link href={`/?next=${encodeURIComponent(next)}`}>Back to sign in</Link>}
+        {mode === "login" ? <Link href="/forgot-password">Forgot password?</Link> : <Link href={`/?next=${encodeURIComponent(next)}`}>Back to sign in</Link>}
         {mode === "reset" && <Link href="/forgot-password">Request a new reset link</Link>}
       </div>
     </form>
