@@ -105,6 +105,21 @@ export function createPayout(opts: { senderBatchId: string; receiver: string; am
   );
 }
 
+/** Ask PayPal whether a webhook delivery is authentic. */
+export async function verifyWebhookSignature(opts: { headers: Headers; webhookId: string; event: unknown }): Promise<boolean> {
+  const h = (name: string) => opts.headers.get(name) ?? "";
+  const result = await call<{ verification_status?: string }>("POST", "/v1/notifications/verify-webhook-signature", {
+    auth_algo: h("paypal-auth-algo"),
+    cert_url: h("paypal-cert-url"),
+    transmission_id: h("paypal-transmission-id"),
+    transmission_sig: h("paypal-transmission-sig"),
+    transmission_time: h("paypal-transmission-time"),
+    webhook_id: opts.webhookId,
+    webhook_event: opts.event,
+  });
+  return result.verification_status === "SUCCESS";
+}
+
 export function getPayout(batchId: string) {
   return call<PayoutBatch>("GET", `/v1/payments/payouts/${encodeURIComponent(batchId)}`);
 }

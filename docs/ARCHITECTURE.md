@@ -41,6 +41,17 @@ There is no `release_payout` agent tool. The dashboard invokes a separate approv
 
 Captures use a `PayPal-Request-Id` derived from the order ID. Payout batches use an identifier based on circle, cycle and demo run. These reduce duplicate processor requests; they do not establish a complete production accounting or concurrency model. Batch creation also does not mean every recipient has received settled funds; the status-check tool reads the processor’s reported state.
 
+## PayPal webhooks (optional)
+
+Webhooks book a payment even if the member closes the tab before the browser capture runs. `POST /api/paypal/webhook` is public but never trusts the body: every delivery is verified with PayPal's `verify-webhook-signature` API and rejected with 400 unless the status is `SUCCESS`. It returns 503 until `PAYPAL_WEBHOOK_ID` and the PayPal credentials are set.
+
+- `PAYMENT.CAPTURE.COMPLETED` books the matching contribution and logs "PayPal confirmed X's payment".
+- `CHECKOUT.ORDER.APPROVED` captures the order through the same path as the browser flow.
+- Both are idempotent: an already-paid contribution is a no-op, and unknown orders or other event types return 200 and are ignored.
+- Because webhooks carry no session, `startContribution` records `orderId -> accountId` in `order-index.json` inside the account data directory (`data/accounts/`, gitignored). Orders created before this index existed are ignored by the webhook; the browser path and payment verification still work for them.
+
+Setup: in the PayPal developer dashboard, open your sandbox app, add the webhook URL `https://rotapot.simakk.co.za/api/paypal/webhook` with the events `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED`, then copy the Webhook ID into `PAYPAL_WEBHOOK_ID`.
+
 ## Rules in code and rules in the prompt
 
 Code enforces a 12-hour reminder cooldown, rejects reminders for paid members, requires a fully contributed pot before proposing a payout, and checks that plans have 1–3 instalments totalling the outstanding balance within 21 days of the original due date.

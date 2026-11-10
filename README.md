@@ -107,6 +107,10 @@ Signed member payment links work without login, expire after 30 days, and only a
 
 For a quick judge walkthrough with one inbox, use **Explore sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
 
+### Optional: PayPal webhooks
+
+To book payments even when a member closes the tab, add a webhook in your PayPal sandbox app pointing at `https://rotapot.simakk.co.za/api/paypal/webhook` with events `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED`, and put its Webhook ID in `PAYPAL_WEBHOOK_ID`. See [the architecture notes](docs/ARCHITECTURE.md#paypal-webhooks-optional).
+
 ## How the pieces fit
 
 ![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)

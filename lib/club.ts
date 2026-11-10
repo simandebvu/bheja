@@ -4,6 +4,8 @@ import { currentCycle, findClub, findMember, loadClub, loadDb, logActivity, upda
 import { GREETING, payoutMessage, receiptMessage } from "./messages";
 import { circleRecord, passportFor } from "./passport";
 import * as paypal from "./paypal";
+import { currentAccount } from "./account-context";
+import { indexOrder } from "./order-index";
 import type { Club, Contribution, Instalment, Language, MessageKind } from "./types";
 
 const REMINDER_COOLDOWN_MS = 12 * 60 * 60 * 1000;
@@ -153,6 +155,7 @@ export async function startContribution(clubId: string, memberId: string, checko
     row.paypalOrderId = order.id;
     row.pendingAmount = due;
   });
+  indexOrder(order.id, currentAccount().id);
   const approvalUrl = order.links?.find((link) => link.rel === "payer-action" || link.rel === "approve")?.href;
   return { orderId: order.id, ...(checkout && approvalUrl ? { approvalUrl } : {}) };
 }
@@ -172,6 +175,21 @@ export async function completeContribution(orderId: string) {
       }
     }
     throw new Error(`No contribution matches order ${orderId}.`);
+  });
+}
+
+/** Book a capture PayPal already completed (webhook path). Idempotent. */
+export function bookCapturedOrder(orderId: string, captureId?: string): { found: boolean; booked: boolean } {
+  return updateDb((db) => {
+    for (const club of db.clubs.filter((c) => c.status !== "draft")) {
+      const row = currentCycle(club).contributions.find((x) => x.paypalOrderId === orderId);
+      if (!row) continue;
+      if (row.status === "paid") return { found: true, booked: false };
+      markPaid(club, row.memberId, "paypal", Number(row.pendingAmount ?? club.contributionAmount), captureId);
+      logActivity(club, "payment", `PayPal confirmed ${findMember(club, row.memberId).name}'s payment.`);
+      return { found: true, booked: true };
+    }
+    return { found: false, booked: false };
   });
 }
 
