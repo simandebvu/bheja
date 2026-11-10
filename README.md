@@ -1,92 +1,116 @@
-# Rotapot: an AI treasurer for savings clubs
+<p align="center"><img src="docs/assets/cover.svg" alt="Rotapot — Less chasing. More circle." width="100%"></p>
 
-**Live demo:** https://rotapot.simakk.co.za (demo sign-in, PayPal sandbox) · Built for the PayPal AI Hackathon 2026 · MIT licence
+<p align="center">
+  <a href="https://rotapot.simakk.co.za"><strong>Try the live demo</strong></a> ·
+  <a href="https://youtu.be/6AdlBTQAcvI"><strong>Watch the film</strong></a> ·
+  <a href="https://devpost.com/software/rotapot"><strong>Devpost</strong></a> ·
+  <a href="https://github.com/simandebvu/rotapot/releases">Releases</a>
+</p>
+<p align="center">
+  <a href="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml"><img src="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml/badge.svg" alt="Verify"></a>
+  <a href="https://github.com/simandebvu/rotapot/releases"><img src="https://img.shields.io/github/v/release/simandebvu/rotapot?color=24307a" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0e8a63" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/payments-PayPal%20sandbox-f4b400" alt="PayPal sandbox">
+</p>
 
-Millions of people in Southern Africa save through rotating savings clubs. South Africans call them **stokvels**; Zimbabweans call them **mukando** or **rounds**. Every month each member chips in, and the whole pot goes to one member, in turn.
+## The circle already has trust. Give its treasurer some time back.
 
-These clubs mostly run on WhatsApp groups, notebooks and trust. The treasurer chases late payers by hand, keeps the books in their head, and moves the money. Members are often spread across Johannesburg, Harare, Bulawayo and London, so cash doesn't work.
+Stokvels in South Africa. Mukando and rounds in Zimbabwe. Savings circles across the diaspora. Each member contributes, and the pot goes to a different member in turn.
 
-**Rotapot** gives treasurers an AI agent, built on PayPal. The demo treasurer, Rudo in Johannesburg, runs three circles:
+The admin usually falls to one person: chasing payments, checking who has paid and keeping everyone informed. **Rotapot is an AI treasurer’s assistant for that work.** Claude reads the books and handles the conversation; PayPal handles contributions and payouts. The treasurer decides when to release the pot.
 
-| Circle | Members | State in the demo |
-|---|---|---|
-| Ubuntu Circle (mukando) | 6 in Zimbabwe, South Africa, UK | 3 members late |
-| Leicester Diaspora Round | 5 in UK, Ireland, US, Zimbabwe | everyone paid, payout ready |
-| Soweto Mothers' Stokvel | 8 in South Africa, UK | on track, not due yet |
+Built for the **PayPal AI Hackathon 2026** by [Shingirayi Innocent Mandebvu](https://github.com/simandebvu).
 
-- **Briefing.** When Rudo signs in, the agent goes through every circle on its own. Following each circle's rules, it sends the reminders that are due and puts ready payouts up for approval. Then it tells her what needs her. You can watch every step, including the actual tool calls.
-- **Collect.** Every member gets a personal PayPal checkout link (Orders v2). The page greets them in their own language and shows when their turn comes.
-- **Chase, kindly.** Reminders are written in Shona, Ndebele, isiZulu, Sesotho, Setswana or English, with a pay link. The agent never sends a member two reminders within 12 hours, and some circles forbid reminders before the due date.
-- **Verify, don't trust.** "I already paid" gets checked against PayPal. If a checkout was approved but never captured, the agent captures it.
-- **Members talk back.** In the phone view you can reply as a member, in their language: "I already paid", "can I pay half now?". The agent checks PayPal, reads their track record, answers them in their language, and can propose an instalment plan that the treasurer approves or declines. Members on a plan pay the right instalment from the same link.
-- **Trust passport.** Every member's payment record across all their circles (years saving, on-time rate, streak, a dot for every contribution). Tap anyone in a circle to see theirs. This is the moat: a payment history that people with no credit file have never had on paper, and the agent uses it to judge how to treat late payers.
-- **Human in the loop.** The agent can only *propose* a payout. Money moves (PayPal Payouts v1) only when the treasurer taps **Release**. The agent has no tool that can send money. Then the circle turns to the next person, and the recipient gets a WhatsApp-style notice.
+[![The Soweto Mothers’ Stokvel dashboard: contribution ring, agent, ledger and member conversation](docs/assets/dashboard.png)](https://rotapot.simakk.co.za)
 
-## Run it
+*An actual screenshot of the sandbox demo. The indigo ring draws on shweshwe; each gold segment makes a contribution visible.*
+
+## What you can try
+
+| Experience | What happens |
+| --- | --- |
+| **One briefing, three circles** | The agent reads each circle, follows its reminder instructions and proposes ready payouts. Its tool calls stream to the dashboard. |
+| **A personal pay link** | Each member has a checkout page using PayPal Orders v2 and the JavaScript SDK. Approved instalments use the same link. |
+| **A conversation, in their language** | Shona, Ndebele, isiZulu, Sesotho, Setswana and English. Members can reply, ask for time or ask the agent to check a payment. |
+| **A plan with a person behind it** | The agent reads payment history and proposes instalments. The treasurer approves or declines. |
+| **A pot released by the treasurer** | The agent proposes; the Release action invokes PayPal Payouts v1. The next cycle then opens. |
+| **A visible payment record** | The trust passport shows contributions, on-time rate and streaks across circles. Historical demo records are seeded. |
+
+> **Prototype boundary:** sandbox payments only. Messages stay in an in-app outbox, not real WhatsApp. Sign-in is a demo convenience, not production authentication. Do not use this build for real funds or personal financial data.
+
+## Take the two-minute tour
+
+1. [Open Rotapot](https://rotapot.simakk.co.za) and use the pre-filled demo sign-in.
+2. Let the briefing run. Inspect the actions across Ubuntu, Leicester and Soweto.
+3. Open **Ubuntu Circle**. Try a member’s suggested reply asking to split a contribution, then review the proposed plan as the treasurer.
+4. Open **Leicester Diaspora Round** to see a ready pot and the sandbox payout flow.
+5. Open any member’s **trust passport** to see their contribution history.
+
+The hosted demo is shared. **Reset demo** restores its starting state for everyone. See the [full demo guide](docs/DEMO.md) for checkout instructions and expected outcomes.
+
+## Run locally
+
+Use Node.js 22 and npm. The repository includes a lockfile.
 
 ```bash
-npm install
-cp .env.example .env.local   # add keys (see below)
-npm run dev                  # http://localhost:3000
+git clone https://github.com/simandebvu/rotapot.git
+cd rotapot
+npm ci
+cp .env.example .env.local
+npm run dev
 ```
 
-| Variable | Needed for |
-|---|---|
-| `ANTHROPIC_API_KEY` | The treasurer agent (Claude Opus 4.8) |
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Real PayPal sandbox checkout and payouts. Leave blank for **mock mode**. |
-| `PAYPAL_PAYOUT_RECEIVER_OVERRIDE` | Optional: send payouts to one of your sandbox personal accounts so you can see them land |
+Open **http://localhost:3000**. Add your own credentials to `.env.local`:
 
-Getting PayPal sandbox keys: open developer.paypal.com, go to **Apps & Credentials** (Sandbox), choose **Create App**, then copy the Client ID and Secret. To pay on the checkout pages, log in with the sandbox *personal* account listed under **Testing Tools → Sandbox Accounts**.
+| Variable | Purpose |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Enables the Claude treasurer agent. Without it, the UI can run but AI actions are unavailable. |
+| `AGENT_MODEL` | Optional model override; use a model available to your account. |
+| `ANTHROPIC_BASE_URL` | Optional Anthropic-compatible gateway endpoint. |
+| `PAYPAL_CLIENT_ID` + `PAYPAL_CLIENT_SECRET` | Enables PayPal **sandbox** checkout and payouts. Leave both blank for mock payments. |
+| `PAYPAL_PAYOUT_RECEIVER_OVERRIDE` | Optional sandbox personal-account email for receiving test payouts. |
 
-**Paying in the sandbox:** on a member's pay page choose **Debit or Credit Card** and pay as a guest with test card `4111 1111 1111 1111`, any future expiry (e.g. 12/30), CVV `123`, and a US billing address. Then choose **Pay now as guest**, not "Create Account". Or log in with a sandbox *personal* account. The page asks PayPal for a US buyer (`buyer-country=US`, sandbox only) so testers outside the US see the full checkout.
+Never commit `.env.local`. Demo state is stored in `data/db.json` and is generated automatically. Run one application process with a writable filesystem. Building fetches Google Fonts, so the build needs network access.
 
-**Reset demo** (top right) restores the seed data: cycle 3 of 6, three of six members paid, three days overdue.
-
-## How it works
-
-```
-app/page.tsx                 Demo sign-in
-app/circles/page.tsx         Home: the agent's briefing + all circles
-app/circles/[clubId]         One circle: pot ring, agent chat, release, member phone view
-app/pay/[clubId]/[memberId]  Member checkout page (PayPal JS SDK buttons)
-app/api/briefing             Agent run across every circle (streamed)
-app/api/agent                Claude tool-use loop
-app/api/paypal/orders        Create order / capture order (Orders v2)
-app/api/payout               Treasurer approval → PayPal Payouts v1
-lib/agent.ts                 System prompt + 6 tools, chat and briefing modes
-lib/club.ts                  Domain logic shared by routes and tools
-lib/paypal.ts                PayPal REST client (sandbox), OAuth token cache
-lib/db.ts                    JSON-file store + seed club
+```bash
+npm run typecheck
+npm run build
+npm start
 ```
 
-The agent's tools:
+## How the pieces fit
 
-| Tool | What it does |
-|---|---|
-| `list_circles` | One line per circle: who still owes, days late, payout status |
-| `get_circle` | One circle in detail: rules, each member's status, language, recent reminders |
-| `verify_payment` | Checks the member's order in PayPal; captures approved-but-uncaptured orders |
-| `send_reminder` | Queues a reminder in the member's language with their pay link |
-| `propose_payout` | Marks the pot ready for approval. Refuses unless everyone has paid. Moves no money |
-| `check_payout_status` | Reads the payout batch status back from PayPal |
+```mermaid
+flowchart LR
+    T["Treasurer dashboard"] --> A["Next.js API routes"]
+    M["Member checkout / conversation"] --> A
+    A --> C["Claude tool loop"]
+    C --> D["Domain checks + JSON store"]
+    C --> V["Verify an approved contribution"]
+    V --> O["PayPal Orders v2"]
+    A --> O
+    T --> R["Treasurer Release action"]
+    R --> P["PayPal Payouts v1"]
+    D --> W["In-app message outbox"]
+```
 
-**Safety by design:** Releasing money is a separate HTTP route that only the treasurer's button calls. Payouts use a deterministic `sender_batch_id` per cycle, and captures use a `PayPal-Request-Id`, so a double click can't pay twice.
+The agent has **nine tools**, including payment verification, reminder delivery to the outbox, payment-plan proposals and payout proposals. It has **no payout-release tool**. Verification can capture a contribution the member already approved. Read the [architecture and authority boundaries](docs/ARCHITECTURE.md).
 
-## Demo script (under 3 minutes)
+## Project guide
 
-Click **Reset demo** first. The briefing runs again the next time the circles page opens.
+| Resource | Start here for |
+| --- | --- |
+| [Demo guide](docs/DEMO.md) | Judge walkthrough, sandbox checkout and reset behaviour |
+| [Architecture](docs/ARCHITECTURE.md) | Agent tools, payment flow, storage and limitations |
+| [Roadmap](docs/ROADMAP.md) | What ships today and what needs to come next |
+| [Changelog](CHANGELOG.md) | Versioned release history |
+| [Contributing](CONTRIBUTING.md) | Setup, checks and focused contributions |
+| [Security](SECURITY.md) | Reporting concerns and understanding the demo boundary |
 
-1. **(0:00) Sign in.** "Rudo is treasurer of three savings circles across five countries. Millions of Africans save like this, on WhatsApp and trust."
-2. **(0:15) The briefing runs by itself.** Let the trace play: it reads each circle, writes to Sipho in isiZulu, Thandiwe in Ndebele and Lerato in Sesotho, skips Soweto because its rules say not before the due date, and puts Leicester's US$500 up for approval.
-3. **(0:50) Leicester.** Open the navy "ready to release" card. Show the ring: all five paid. Tap **Release US$500**. PayPal Payouts fires, the card turns green with the batch ID, gold pours round the ring into Farai, the circle *turns* to Tatenda, and Farai's phone shows "Makorokoto Farai!".
-4. **(1:30) Ubuntu Circle.** Show the phone tabs with the three reminders in three languages (toggle "Show English"). Open Thandiwe's pay link on a phone and pay with PayPal sandbox; on the dashboard her segment fills gold and a receipt lands on her phone.
-5. **(2:05) Members talk back.** On Sipho's phone, tap the suggested isiZulu reply ("can I pay half now, the rest Friday?") and send. The agent checks his record (78% on time), answers him in isiZulu, and a plan request appears for Rudo. Approve it, and tap Thandiwe's name to show her trust passport: "Rock solid", 37 of 38 on time.
-6. **(2:40) Close.** "An AI treasurer that does the chasing and the bookkeeping, in your members' own languages, and never moves money without you."
+## What comes next
 
-## Honest limitations
+Real WhatsApp delivery, native-speaker review, durable storage and production identity controls come before any real-money pilot. Local payment rails and a consent-based portable payment record are longer-term directions. The [roadmap](docs/ROADMAP.md) separates these plans from features available now.
 
-- Reminders go to an in-app outbox. Sending them for real needs the WhatsApp Business API, which is the obvious next step.
-- PayPal does not support ZAR as a transaction currency, so the club runs in USD. That fits Zimbabwe and the diaspora; South African members would want local rails (e.g. PayShap) later.
-- The fixed receipt and payout messages (lib/messages.ts) and the sample member replies (app/components/Phone.tsx) need a native speaker's check before real use.
-- Payment histories before the demo cycle are seeded (lib/db.ts) to show what the trust passport looks like with years of data.
-- Demo sign-in only (no real accounts), single-process JSON store: this is a demo, not production.
+## License
+
+[MIT](LICENSE). This project is an independent hackathon prototype; it is not an official PayPal or Anthropic product.
