@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { readPayAccess } from "@/lib/pay-access";
+import { requireSession } from "@/lib/authorize";
+import { accountContext } from "@/lib/account-context";
 import { notFound } from "next/navigation";
 import { LogoMark, firstName } from "@/app/components/ui";
 import { amountDueNow, daysLate } from "@/lib/club";
@@ -7,15 +11,20 @@ import { paypalConfigured } from "@/lib/paypal";
 import PayButtons from "./PayButtons";
 
 export const dynamic = "force-dynamic";
+export const metadata = { referrer: "no-referrer" as const, robots: { index: false, follow: false } };
 
 const dayMonth = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
 const monthYear = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
-export default async function PayPage({ params }: { params: Promise<{ clubId: string; memberId: string }> }) {
+export default async function PayPage({ params, searchParams }: { params: Promise<{ clubId: string; memberId: string }>; searchParams: Promise<{ access?: string }> }) {
   const { clubId, memberId } = await params;
-  const club = loadDb().clubs.find((c) => c.id === clubId);
+  const { access: token } = await searchParams;
+  const access = token ? readPayAccess(token) : null;
+  if (token && (!access || access.clubId !== clubId || access.memberId !== memberId)) notFound();
+  const account = access ? { id: access.accountId, name: "Member checkout" } : (await requireSession()).user;
+  const club = accountContext.run(account, () => loadDb().clubs.find((c) => c.id === clubId));
   const member = club?.members.find((m) => m.id === memberId);
-  if (!club || !member) notFound();
+  if (!club || !member || club.status === "draft") notFound();
   const cycle = currentCycle(club);
   const contribution = cycle.contributions.find((c) => c.memberId === memberId);
   const recipient = club.members.find((m) => m.id === cycle.recipientId)!;
@@ -74,9 +83,10 @@ export default async function PayPage({ params }: { params: Promise<{ clubId: st
         {contribution?.status === "paid" ? (
           <div className="pay-ok"><b>All paid up</b>Thank you. Your US${amount} is in the pot.</div>
         ) : (
-          <PayButtons clubId={club.id} memberId={member.id} clientId={paypalConfigured() ? process.env.PAYPAL_CLIENT_ID! : null} amount={String(amount)} />
+          <PayButtons accessToken={token} clubId={club.id} memberId={member.id} clientId={paypalConfigured() ? process.env.PAYPAL_CLIENT_ID! : null} amount={String(amount)} />
         )}
       </div>
+      <p className="pay-foot"><Link href="/circles">← Back to my circles</Link></p>
       <p className="pay-foot">Payments go through PayPal. Rotapot never sees your card details, and the treasurer approves every payout.</p>
     </main>
   );

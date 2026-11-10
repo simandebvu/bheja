@@ -32,7 +32,7 @@ function pushMessage(club: Club, memberId: string, language: Language, message: 
 
 /** One-line state of every circle, for the briefing and the home page. */
 export function overview() {
-  return loadDb().clubs.map((club) => {
+  return loadDb().clubs.filter((club) => club.status !== "draft").map((club) => {
     const cycle = currentCycle(club);
     const unpaid = cycle.contributions.filter((c) => c.status !== "paid");
     const late = daysLate(cycle.dueDate);
@@ -69,7 +69,7 @@ export function statusSummary(clubId: string) {
       status: c.status,
       paid_so_far: c.status === "paid" ? Number(club.contributionAmount) : (c.paidAmount ?? 0),
       payment_plan: c.plan ? { status: c.plan.status, instalments: c.plan.instalments } : null,
-      track_record: rec ? `${rec.onTime} of ${rec.payments} payments on time in this circle since ${rec.since}; current on-time streak ${rec.streak}` : "new member",
+      track_record: rec?.payments ? `${rec.onTime} of ${rec.payments} payments on time in this circle since ${rec.since}; current on-time streak ${rec.streak}` : "new member",
       days_late: c.status === "paid" ? 0 : daysLate(cycle.dueDate),
       reminded_recently: Boolean(lastReminder && now - Date.parse(lastReminder.createdAt) < REMINDER_COOLDOWN_MS),
       verified_with_paypal: c.source === "paypal",
@@ -124,10 +124,16 @@ function markPaid(club: Club, memberId: string, source: "paypal" | "mock", amoun
   const amt = String(Number(amount.toFixed(2)));
   logActivity(club, "payment", `${m.name} paid US$${amt}${row.status === "paid" ? "" : ` (US$${full - row.paidAmount} still to come)`}${source === "paypal" ? ` via PayPal (capture ${captureId ?? "n/a"})` : " (mock mode)"}.`);
   pushMessage(club, m.id, m.language, receiptMessage(m.language, first(m.name), amt), "receipt");
+  if (cycle.contributions.every((payment) => payment.status === "paid") && cycle.payout.status === "none") {
+    cycle.payout.status = "awaiting_approval";
+    cycle.payout.proposedReason = "Every member has paid. The pot is ready for your approval.";
+    cycle.payout.proposedAt = new Date().toISOString();
+    logActivity(club, "system", "The pot is full. Waiting for treasurer approval before any payout.");
+  }
 }
 
 /** Create a PayPal order for a member's contribution in the current cycle. */
-export async function startContribution(clubId: string, memberId: string): Promise<{ orderId: string }> {
+export async function startContribution(clubId: string, memberId: string, checkout?: { returnUrl: string; cancelUrl: string }): Promise<{ orderId: string; approvalUrl?: string }> {
   const club = loadClub(clubId);
   const cycle = currentCycle(club);
   const member = findMember(club, memberId);
@@ -139,6 +145,7 @@ export async function startContribution(clubId: string, memberId: string): Promi
     amount: due,
     customId: `${club.id}:${cycle.number}:${memberId}`,
     description: `${club.name} - cycle ${cycle.number} contribution (${member.name})`,
+    checkout,
   });
   updateClub(clubId, (c) => {
     const row = currentCycle(c).contributions.find((x) => x.memberId === memberId)!;
@@ -146,16 +153,18 @@ export async function startContribution(clubId: string, memberId: string): Promi
     row.paypalOrderId = order.id;
     row.pendingAmount = due;
   });
-  return { orderId: order.id };
+  const approvalUrl = order.links?.find((link) => link.rel === "payer-action" || link.rel === "approve")?.href;
+  return { orderId: order.id, ...(checkout && approvalUrl ? { approvalUrl } : {}) };
 }
 
 /** Capture an approved PayPal order and mark the contribution as paid. */
 export async function completeContribution(orderId: string) {
+  if (!loadDb().clubs.some((club) => club.status !== "draft" && currentCycle(club).contributions.some((row) => row.paypalOrderId === orderId))) throw new Error("Unknown payment.");
   const order = await paypal.captureOrder(orderId);
   if (order.status !== "COMPLETED") throw new Error(`Order ${orderId} not completed (status ${order.status}).`);
   const captureId = order.purchase_units?.[0]?.payments?.captures?.[0]?.id;
   return updateDb((db) => {
-    for (const club of db.clubs) {
+    for (const club of db.clubs.filter((c) => c.status !== "draft")) {
       const row = currentCycle(club).contributions.find((x) => x.paypalOrderId === orderId);
       if (row) {
         if (row.status !== "paid") markPaid(club, row.memberId, "paypal", Number(row.pendingAmount ?? club.contributionAmount), captureId);
@@ -334,8 +343,8 @@ export function decidePlan(clubId: string, memberId: string, approve: boolean) {
     const when = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const plan = row.plan.instalments.map((i) => `US$${Number(i.amount)} by ${when(i.due)}`).join(", then ");
     const text = approve
-      ? `${GREETING[m.language]} ${first(m.name)}! Rudo approved your plan: ${plan}. Use the same pay link each time. Thank you for letting us know.`
-      : `${GREETING[m.language]} ${first(m.name)}, Rudo can't approve a plan this cycle. Please pay the US$${Number(club.contributionAmount)} as soon as you can, or reply here to talk it through.`;
+      ? `${GREETING[m.language]} ${first(m.name)}! ${club.treasurerName} approved your plan: ${plan}. Use the same pay link each time. Thank you for letting us know.`
+      : `${GREETING[m.language]} ${first(m.name)}, ${club.treasurerName} can't approve a plan this cycle. Please pay the US$${Number(club.contributionAmount)} as soon as you can, or reply here to talk it through.`;
     pushMessage(club, memberId, m.language, text, "plan");
     logActivity(club, "system", `Treasurer ${approve ? "approved" : "declined"} ${m.name}'s payment plan.`);
     return { ok: true };

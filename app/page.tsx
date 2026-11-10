@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import AuthForm from "./components/AuthForm";
 import { LogoMark, ShweshweDefs } from "./components/ui";
 
 /** A decorative pot: six seats, four paid, turning slowly. */
@@ -33,8 +32,6 @@ function HeroRing() {
 }
 
 export default function SignIn() {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
 
   return (
     <main className="signin">
@@ -56,32 +53,7 @@ export default function SignIn() {
       </section>
 
       <section className="signin-panel">
-        <form
-          className="signin-card"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setBusy(true);
-            // Demo session: any sign-in on this form opens Rudo's account for 8 hours.
-            document.cookie = "rotapot_session=rudo; path=/; max-age=28800; samesite=lax";
-            const next = new URLSearchParams(window.location.search).get("next");
-            router.push(next && next.startsWith("/circles") ? next : "/circles");
-          }}
-        >
-          <h2>Sign in</h2>
-          <p className="muted">This is a demo account. The details are filled in for you.</p>
-          <label>
-            Email
-            <input type="email" defaultValue="rudo@rotapot.demo" autoComplete="username" />
-          </label>
-          <label>
-            Password
-            <input type="password" defaultValue="mukando-2026" autoComplete="current-password" />
-          </label>
-          <button type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in as Rudo"}</button>
-          <p className="signin-who">
-            <b>Rudo Chikwanha</b> · Johannesburg. Treasurer of three circles with members in Zimbabwe, South Africa, the UK, Ireland and the US.
-          </p>
-        </form>
+        <AuthForm />
         <p className="signin-foot">Payments run on PayPal sandbox. No real money moves.</p>
       </section>
     </main>

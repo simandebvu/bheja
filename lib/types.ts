@@ -7,6 +7,10 @@ export interface Member {
   city: string;
   language: Language;
   paypalEmail: string;
+  email?: string;
+  userId?: string;
+  joinedAt?: string;
+  invite?: { nonce: string; expiresAt: number; status: "not_sent" | "sending" | "sent" | "failed"; lastAttempt?: number; error?: string };
   /** Position in the payout rotation (1-based). */
   turn: number;
   /** Payment record in this circle before the current cycle (seeded for the demo). */
@@ -85,7 +89,13 @@ export interface ActivityItem {
   text: string;
 }
 
+export interface Membership { id: string; ownerId: string; clubId: string; memberId: string }
+
 export interface Club {
+  status?: "draft" | "active";
+  sample?: boolean;
+  firstDue?: string;
+  createdAt?: string;
   id: string;
   name: string;
   /** What kind of circle this is, in the members' own words. */
@@ -121,4 +131,5 @@ export interface Db {
   runId?: string;
   clubs: Club[];
   briefing?: Briefing;
+  memberships?: Membership[];
 }

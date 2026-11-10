@@ -9,6 +9,7 @@ type PayPalNamespace = {
     createOrder: () => Promise<string>;
     onApprove: (data: { orderID: string }) => Promise<void>;
     onError: (err: unknown) => void;
+    onInit: () => void;
   }) => PayPalButtonsInstance;
 };
 declare global {
@@ -28,42 +29,61 @@ function loadSdk(clientId: string): Promise<PayPalNamespace> {
   });
 }
 
-export default function PayButtons({ clubId, memberId, clientId, amount }: { clubId: string; memberId: string; clientId: string | null; amount: string }) {
+export default function PayButtons({ clubId, memberId, clientId, amount, accessToken }: { accessToken?: string; clubId: string; memberId: string; clientId: string | null; amount: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const returning = useRef(false);
+
+  async function capture(orderId: string) {
+    const res = await fetch(`/api/paypal/orders/${encodeURIComponent(orderId)}/capture`, { method: "POST", headers: accessToken ? { "x-rotapot-pay-access": accessToken } : {} });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "We couldn't confirm your payment. Please try again.");
+    setDone(true);
+  }
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const orderId = query.get("token");
+    if (query.get("paypalReturn") !== "1" || !orderId || returning.current) return;
+    returning.current = true;
+    setBusy(true);
+    capture(orderId).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
+  }, []);
 
   useEffect(() => {
     if (!clientId || !ref.current) return;
+    if (new URLSearchParams(window.location.search).get("paypalReturn") === "1") return;
     let buttons: PayPalButtonsInstance | undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => setSlow(true), 10_000);
     loadSdk(clientId)
       .then((paypal) => {
+        if (cancelled) return;
         buttons = paypal.Buttons({
+          onInit: () => { setReady(true); window.clearTimeout(timer); },
           style: { layout: "vertical", shape: "pill", label: "pay", color: "gold" },
           createOrder: async () => {
             const res = await fetch("/api/paypal/orders", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...(accessToken ? { "x-rotapot-pay-access": accessToken } : {}) },
               body: JSON.stringify({ clubId, memberId }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             return data.orderId as string;
           },
-          onApprove: async ({ orderID }) => {
-            const res = await fetch(`/api/paypal/orders/${orderID}/capture`, { method: "POST" });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-            setDone(true);
-          },
+          onApprove: async ({ orderID }) => { await capture(orderID); },
           onError: (err) => setError(err instanceof Error ? err.message : String(err)),
         });
         if (ref.current) return buttons.render(ref.current);
       })
       .catch((e: Error) => setError(e.message));
-    return () => buttons?.close?.();
-  }, [clientId, clubId, memberId]);
+    return () => { cancelled = true; window.clearTimeout(timer); buttons?.close?.(); };
+  }, [clientId, clubId, memberId, accessToken]);
 
   const paid = <div key="paid" className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
 
@@ -78,7 +98,7 @@ export default function PayButtons({ clubId, memberId, clientId, amount }: { clu
             setBusy(true);
             const res = await fetch("/api/mock-pay", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...(accessToken ? { "x-rotapot-pay-access": accessToken } : {}) },
               body: JSON.stringify({ clubId, memberId }),
             });
             const data = await res.json();
@@ -100,8 +120,27 @@ export default function PayButtons({ clubId, memberId, clientId, amount }: { clu
   return (
     <>
       {done && paid}
+      {!done && <p className="pay-note" role="status">{busy ? "Connecting with PayPal…" : !ready ? (slow ? "PayPal is taking longer than usual. You can continue directly below." : "Loading secure PayPal checkout…") : "PayPal sandbox · no real money moves"}</p>}
       <div key="paypal-buttons" ref={ref} style={done ? { display: "none" } : undefined} />
       {error && !done && <div className="pay-err">{error}</div>}
+      {!done && <button className="pay-mock" disabled={busy} onClick={async () => {
+        setBusy(true); setError(null);
+        try {
+          const query = new URLSearchParams(window.location.search);
+          if (query.get("paypalReturn") === "1" && query.get("token")) {
+            await capture(query.get("token")!);
+          } else {
+            const res = await fetch("/api/paypal/orders", { method: "POST", headers: { "Content-Type": "application/json", ...(accessToken ? { "x-rotapot-pay-access": accessToken } : {}) }, body: JSON.stringify({ clubId, memberId, redirect: true }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            const destination = new URL(data.approvalUrl);
+            if (destination.protocol !== "https:" || destination.hostname !== "www.sandbox.paypal.com") throw new Error("PayPal didn't return a sandbox checkout link. Please try again.");
+            window.location.assign(destination.href);
+          }
+        } catch (e) { setError(e instanceof Error ? e.message : "Couldn't open PayPal. Please try again."); }
+        finally { setBusy(false); }
+      }}>{returning.current ? "Check payment status" : "Continue directly to PayPal →"}</button>}
+      {!done && <p className="pay-note">Use a PayPal sandbox personal account. No real money moves.</p>}
     </>
   );
 }

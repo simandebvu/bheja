@@ -1,3 +1,4 @@
+import { payLink } from "./pay-access";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   addReminder,
@@ -19,30 +20,30 @@ const MODEL = process.env.AGENT_MODEL || "claude-opus-4-8";
 const VIA_GATEWAY = Boolean(process.env.ANTHROPIC_BASE_URL);
 const MAX_STEPS = 14;
 
-const SYSTEM = `You are Rotapot, the AI treasurer's assistant for rotating savings circles (stokvels in South Africa, mukando or rounds in Zimbabwe and the diaspora). You work for the treasurer, Rudo, and you speak to her directly as "you". She runs several circles. Members pay a fixed monthly amount through PayPal; each month the whole pot goes to one member in rotation.
+const SYSTEM = `You are Rotapot, the AI treasurer's assistant for rotating savings circles (stokvels in South Africa, mukando or rounds in Zimbabwe and the diaspora). You work for the signed-in treasurer, and you speak to them directly as "you". They run several circles. Members pay a fixed monthly amount through PayPal; each month the whole pot goes to one member in rotation.
 
 What you do:
 - Keep each circle's books straight and explain them plainly and warmly.
 - Spot who is late and send friendly reminders, following each circle's own rules (some circles say no reminders before the due date).
 - Write reminders in the member's own language (English, Shona, Ndebele, isiZulu, Sesotho or Setswana): short, like a WhatsApp message, with the amount, due date and {{PAY_LINK}}. Kind, never shaming. After a non-English reminder add a blank line and a one-line English translation starting "EN:".
-- As soon as every member of a circle has paid, call propose_payout yourself without asking. Proposing moves no money; it puts the payout in front of you (Rudo) to release.
+- As soon as every member of a circle has paid, call propose_payout yourself without asking. Proposing moves no money; it puts the payout in front of you (the treasurer) to release.
 
 Hard rules:
-- You never move money. Only Rudo can release a payout, in the app.
+- You never move money. Only the treasurer can release a payout, in the app.
 - Use tools for facts; never guess who has paid. If a member says they paid but the books disagree, verify_payment before answering.
 - Never show internal identifiers (club_id, member_id, message or order IDs) or tool names in your replies. Use people's names and circle names.
 - Don't recite the circle's rules back unless asked.
-- Members can ask for more time or to split a payment. You may propose a payment plan (at most 3 instalments, adding up to what they still owe, all within 21 days of the due date) but only Rudo approves it. Weigh their track record: someone with years of on-time payments deserves the benefit of the doubt; say so. Paying an instalment early is normal and good, not a warning sign. A contribution the books mark as paid counts as paid unless verify_payment shows a problem.
+- Members can ask for more time or to split a payment. You may propose a payment plan (at most 3 instalments, adding up to what they still owe, all within 21 days of the due date) but only the treasurer approves it. Weigh their track record: someone with years of on-time payments deserves the benefit of the doubt; say so. Paying an instalment early is normal and good, not a warning sign. A contribution the books mark as paid counts as paid unless verify_payment shows a problem.
 - Replies are short: at most 4 sentences, or a short list of at most 5 items. No headings.`;
 
-const clubIds = () => loadDb().clubs.map((c) => c.id);
+const clubIds = () => loadDb().clubs.filter((c) => c.status !== "draft").map((c) => c.id);
 
 function tools(): Anthropic.Tool[] {
   const club_id = { type: "string" as const, enum: clubIds(), description: "Which circle." };
   return [
     {
       name: "list_circles",
-      description: "One line per circle Rudo runs: cycle, due date, who still has to pay, days late, who receives the pot, payout status. Start here for anything spanning circles.",
+      description: "One line per circle the treasurer runs: cycle, due date, who still has to pay, days late, who receives the pot, payout status. Start here for anything spanning circles.",
       input_schema: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -72,10 +73,10 @@ function tools(): Anthropic.Tool[] {
     },
     {
       name: "propose_payout",
-      description: "Put this cycle's payout in front of Rudo for release. Refuses unless every member has paid. Moves no money.",
+      description: "Put this cycle's payout in front of the treasurer for release. Refuses unless every member has paid. Moves no money.",
       input_schema: {
         type: "object",
-        properties: { club_id, reason: { type: "string", description: "One short sentence for Rudo on why it's ready." } },
+        properties: { club_id, reason: { type: "string", description: "One short sentence for the treasurer on why it's ready." } },
         required: ["club_id", "reason"],
         additionalProperties: false,
       },
@@ -97,7 +98,7 @@ function tools(): Anthropic.Tool[] {
     },
     {
       name: "propose_payment_plan",
-      description: "Ask Rudo to approve an instalment plan for a member who can't pay in full on time. Instalments must add up to what they still owe and fall within 21 days of the due date. Moves no money.",
+      description: "Ask the treasurer to approve an instalment plan for a member who can't pay in full on time. Instalments must add up to what they still owe and fall within 21 days of the due date. Moves no money.",
       input_schema: {
         type: "object",
         properties: {
@@ -114,7 +115,7 @@ function tools(): Anthropic.Tool[] {
               additionalProperties: false,
             },
           },
-          reason: { type: "string", description: "One sentence for Rudo, including their track record." },
+          reason: { type: "string", description: "One sentence for the treasurer, including their track record." },
         },
         required: ["club_id", "member_id", "instalments", "reason"],
         additionalProperties: false,
@@ -154,7 +155,7 @@ async function runTool(name: string, input: Record<string, unknown>, baseUrl: st
     }
     case "send_reminder": {
       const memberId = String(input.member_id);
-      const link = `${baseUrl}/pay/${clubId}/${memberId}`;
+      const link = `${baseUrl}${payLink(clubId, memberId)}`;
       const raw = String(input.message);
       const text = raw.includes("{{PAY_LINK}}") ? raw.replaceAll("{{PAY_LINK}}", link) : `${raw}\n${link}`;
       addReminder(clubId, memberId, text, input.language as Language);
@@ -198,7 +199,7 @@ export const BRIEFING_PROMPT =
 
 /** A member's WhatsApp message, handled by the agent end to end. */
 export function memberMessagePrompt(o: { name: string; language: string; club: string; text: string; today: string }) {
-  return `${o.name} (writes in ${o.language}) just sent this WhatsApp message to ${o.club}:\n"${o.text}"\n\nToday is ${o.today}. Handle it: check the books and PayPal if they mention paying, look at their track record if they ask for time, and answer them with reply_to_member in ${o.language}. If they ask for more time or to split the payment, propose a sensible plan for Rudo to approve and tell them Rudo will confirm. Then give Rudo a one or two sentence summary of what happened.`;
+  return `${o.name} (writes in ${o.language}) just sent this WhatsApp message to ${o.club}:\n"${o.text}"\n\nToday is ${o.today}. Handle it: check the books and PayPal if they mention paying, look at their track record if they ask for time, and answer them with reply_to_member in ${o.language}. If they ask for more time or to split the payment, propose a sensible plan for the treasurer to approve and tell them the treasurer will confirm. Then give the treasurer a one or two sentence summary of what happened.`;
 }
 
 export async function runAgent(
@@ -211,7 +212,7 @@ export async function runAgent(
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const actions: AgentAction[] = [];
   const system = context.clubId
-    ? `${SYSTEM}\n\nRudo is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless she says otherwise.`
+    ? `${SYSTEM}\n\nthe treasurer is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless they say otherwise.`
     : SYSTEM;
 
   for (let step = 0; step < MAX_STEPS; step++) {

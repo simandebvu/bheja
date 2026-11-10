@@ -49,10 +49,10 @@ Circle-specific instructions, such as avoiding reminders before the due date, ar
 
 ## Storage and streaming
 
-`data/db.json` holds shared demo state on the local filesystem. The application expects a single process; it does not provide database transactions or distributed locking. Reset replaces the shared demo state.
+`data/auth.sqlite` stores Better Auth accounts, sessions, verification records and rate limits. `data/accounts/` stores independent owned-circle files and joined-membership references keyed by authenticated user ID. All treasurer API handlers validate the session and establish the account scope; the agent inherits that scope. Signed member payment links authorize one contribution only. The application expects a single process with persistent disk; circle writes do not provide database transactions or distributed locking. New accounts start empty. Refreshing samples replaces only examples. New groups remain drafts until every invited member accepts with a verified matching email; the treasurer then launches the fixed monthly rotation. Invitation tokens are signed, expire after seven days and are invalidated by draft edits. Member pages recheck the stored user-to-member binding before reading the owner’s circle.
 
 The server streams progress as newline-delimited JSON. A disconnected viewer stops receiving events while the server-side run continues if its process stays alive. This is not a durable background job and does not survive process termination.
 
 ## Before a real-money pilot
 
-Production identity and authorization, transactional persistence, payment reconciliation, webhook verification, concurrency controls, abuse prevention, privacy controls and native-speaker review are required. See the [roadmap](ROADMAP.md) and [security notes](../SECURITY.md).
+Expanded member roles, transactional circle persistence, payment reconciliation, webhook verification, concurrency controls, abuse prevention, privacy controls and native-speaker review are required. See the [roadmap](ROADMAP.md) and [security notes](../SECURITY.md).

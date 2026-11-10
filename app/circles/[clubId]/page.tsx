@@ -12,7 +12,7 @@ import Rotation from "../../components/Rotation";
 import { Avatar, COUNTRY, LogoMark, countriesOf, firstName } from "../../components/ui";
 import { circleRecord } from "@/lib/passport";
 
-type State = { club: Club; paypalMode: "sandbox" | "mock"; agentReady: boolean };
+type State = { payLinks: Record<string, string>; club: Club; paypalMode: "sandbox" | "mock"; agentReady: boolean };
 type Sent = { recipient: string; amount: string; batchId: string; batchStatus: string; next: string | null };
 
 function daysLate(due: string) {
@@ -42,9 +42,11 @@ export default function CircleDashboard() {
   const refresh = useCallback(async () => {
     if (frozen.current) return;
     const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
+    if (res.status === 401) { window.location.assign("/"); return; }
     if (res.status === 404) return setMissing(true);
     if (!res.ok) return;
     const next: State = await res.json();
+    if (next.club.status === "draft") { window.location.replace(`/circles/${clubId}/setup`); return; }
     const cycle = next.club.cycles.find((c) => c.number === next.club.currentCycle)!;
     const paidNow = new Set(cycle.contributions.filter((c) => c.status === "paid").map((c) => `${cycle.number}:${c.memberId}`));
     if (prevPaid.current) {
@@ -60,7 +62,7 @@ export default function CircleDashboard() {
   }, [clubId]);
 
   useEffect(() => {
-    fetch("/api/clubs", { cache: "no-store" }).then((r) => r.json()).then((d) => setClubs(d.clubs));
+    fetch("/api/clubs", { cache: "no-store" }).then((r) => r.json()).then((d) => setClubs((d.clubs ?? []).filter((c: Club) => c.status !== "draft")));
     refresh();
     const t = setInterval(refresh, 2500);
     return () => clearInterval(t);
@@ -83,7 +85,7 @@ export default function CircleDashboard() {
       setSent(data);
       setNote({
         id: data.batchId,
-        text: `Done. **US$${data.amount}** is on its way to ${data.recipient} through PayPal Payouts, and I've let ${firstName(data.recipient)} know on WhatsApp.${data.next ? ` The circle has turned: next up is **${data.next}**.` : ""}`,
+        text: `Done. **US$${data.amount}** is on its way to ${data.recipient} through PayPal Payouts, and I've let ${firstName(data.recipient)} know in their circle inbox.${data.next ? ` The circle has turned: next up is **${data.next}**.` : ""}`,
       });
     } else {
       frozen.current = false;
@@ -101,12 +103,11 @@ export default function CircleDashboard() {
   }
 
   async function reset() {
-    await fetch("/api/clubs", { method: "POST" });
-    setSent(null);
-    setNote(null);
-    setReleaseError(null);
-    prevPaid.current = null;
-    refresh();
+    try {
+      const response = await fetch("/api/clubs/demo", { method: "POST" });
+      if (!response.ok) throw new Error("Couldn't refresh sample circles.");
+      window.location.assign("/circles");
+    } catch { setReleaseError("Couldn't refresh sample circles. Please try again."); }
   }
 
   if (missing) {
@@ -156,7 +157,7 @@ export default function CircleDashboard() {
           <span className={`env-pill ${state.paypalMode === "sandbox" ? "live" : ""}`}>
             <i aria-hidden /> PayPal {state.paypalMode === "sandbox" ? "sandbox" : "mock mode"}
           </span>
-          <button className="link-btn" onClick={reset}>Reset demo</button>
+          {club.sample ? <button className="link-btn" onClick={reset}>Refresh sample circles</button> : <Link className="link-btn" href={`/circles/${club.id}/setup`}>Circle details</Link>}
         </div>
       </header>
 
@@ -215,7 +216,7 @@ export default function CircleDashboard() {
               <div className="release-copy">
                 <span className="release-eyebrow">Payout locked</span>
                 <span className="release-why">
-                  Unlocks when all {club.members.length} have paid. The agent puts it up for approval; only you can release it.
+                  Unlocks when all {club.members.length} have paid. Rotapot puts it up for approval; only you can release it.
                 </span>
               </div>
             )}
@@ -235,7 +236,7 @@ export default function CircleDashboard() {
                       <Avatar member={m} size={32} />
                       <div className="roster-who">
                         <b>{m.name}</b>
-                        <span>{country?.flag} {m.city} · {m.language}{rec ? ` · ${Math.round((rec.onTime / rec.payments) * 100)}% on time` : ""}</span>
+                        <span>{country?.flag} {m.city} · {m.language}{rec?.payments ? ` · ${Math.round((rec.onTime / rec.payments) * 100)}% on time` : " · First round together"}</span>
                       </div>
                     </button>
                     {c.status === "paid" ? (
@@ -243,13 +244,13 @@ export default function CircleDashboard() {
                     ) : c.status === "pending" ? (
                       <span className="tag pending">At checkout</span>
                     ) : c.plan?.status === "approved" ? (
-                      <a className="tag plan" href={`/pay/${club.id}/${m.id}`} target="_blank" rel="noreferrer">
+                      <a className="tag plan" href={state.payLinks[m.id]} target="_blank" rel="noreferrer">
                         Plan · {c.paidAmount ? `US$${c.paidAmount} in, ` : ""}next by {shortDate(c.plan.instalments.find((i) => !i.paid)?.due ?? cycle.dueDate)} ↗
                       </a>
                     ) : c.plan?.status === "pending" ? (
                       <span className="tag pending">Plan requested</span>
                     ) : (
-                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={`/pay/${club.id}/${m.id}`} target="_blank" rel="noreferrer" title="Open this member's pay page">
+                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={state.payLinks[m.id]} target="_blank" rel="noreferrer" title="Open this member's pay page">
                         {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · pay page ↗
                       </a>
                     )}

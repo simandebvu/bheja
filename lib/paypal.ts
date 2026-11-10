@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * Minimal PayPal REST client (sandbox). Uses Orders v2 for contributions
  * and Payouts v1 for releasing the pot. Falls back to mock mode when
@@ -40,15 +42,20 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, ide
 export interface PayPalOrder {
   id: string;
   status: string;
+  links?: Array<{ rel: string; href: string }>;
   purchase_units?: Array<{
     custom_id?: string;
     payments?: { captures?: Array<{ id: string; status: string }> };
   }>;
 }
 
-export function createOrder(opts: { amount: string; customId: string; description: string }) {
+export function createOrder(opts: { amount: string; customId: string; description: string; checkout?: { returnUrl: string; cancelUrl: string } }) {
   return call<PayPalOrder>("POST", "/v2/checkout/orders", {
     intent: "CAPTURE",
+    ...(opts.checkout ? { payment_source: { paypal: { experience_context: {
+      return_url: opts.checkout.returnUrl, cancel_url: opts.checkout.cancelUrl,
+      shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW", brand_name: "Rotapot",
+    } } } } : {}),
     purchase_units: [
       {
         reference_id: opts.customId,
@@ -88,7 +95,9 @@ export function createPayout(opts: { senderBatchId: string; receiver: string; am
           amount: { value: opts.amount, currency: "USD" },
           receiver: opts.receiver,
           note: opts.note,
-          sender_item_id: opts.senderBatchId,
+          // PayPal allows 256 characters for a batch ID but only 63 for an item ID.
+          // Hash the full identity so long custom-circle UUIDs remain unique and retry-safe.
+          sender_item_id: createHash("sha256").update(opts.senderBatchId).digest("hex").slice(0, 60),
         },
       ],
     },

@@ -5,3 +5,6 @@ node_modules
 data/db.json
 next-env.d.ts
 *.tsbuildinfo
+
+data/auth.sqlite*
+data/accounts/

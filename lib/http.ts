@@ -6,9 +6,6 @@ export function fail(err: unknown, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export function baseUrl(req: Request): string {
-  const url = new URL(req.url);
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host;
-  const proto = req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
-  return `${proto}://${host}`;
+export function baseUrl(_req: Request): string {
+  return new URL(process.env.BETTER_AUTH_URL!).origin;
 }

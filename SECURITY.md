@@ -2,7 +2,7 @@
 
 Rotapot v0.1.x is a demonstration for PayPal sandbox. It is not suitable for production funds, real financial records or public multi-tenant use.
 
-Demo sign-in is a client-set cookie. It is not an authentication system, and API routes are not a production authorization boundary. Shared state uses a single JSON file rather than a transactional database. Do not deploy this build with real member data or switch it to production payment credentials.
+Better Auth provides verified email/password accounts, server-side sessions, rate limits and password resets via Resend. Treasurer APIs validate sessions and mutation origins. Account circle files are isolated by authenticated user ID. Invitation links expire after seven days and require a verified account with the invited email to accept. Member pages validate the membership binding and expose only member-facing data. Signed payment links grant only contribution access and expire after 30 days. Drafts cannot collect contributions or release payouts; edits invalidate prior invitations and acceptances. Circle state still uses per-account JSON files rather than a transactional database. Do not deploy this build with real member data or switch it to production payment credentials.
 
 ## Reporting a concern
 

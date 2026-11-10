@@ -1,3 +1,4 @@
+import { withAccount } from "@/lib/authorize";
 import { memberMessagePrompt, runAgent } from "@/lib/agent";
 import { recordInbound } from "@/lib/club";
 import { loadClub } from "@/lib/db";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /** A member replies on WhatsApp (simulated in the phone view); the agent handles it. */
-export async function POST(req: Request, { params }: { params: Promise<{ clubId: string }> }) {
+async function handlePOST(req: Request, { params }: { params: Promise<{ clubId: string }> }) {
   const { clubId } = await params;
   if (!agentConfigured()) return fail("The agent needs an API key.", 503);
   let memberId: string;
@@ -31,3 +32,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ clubId:
   const origin = baseUrl(req);
   return agentStream((send) => runAgent([{ role: "user", content: prompt }], origin, send, { clubId }));
 }
+
+export const POST = withAccount(handlePOST);

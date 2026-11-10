@@ -1,3 +1,4 @@
+import { withAccount } from "@/lib/authorize";
 import { NextResponse } from "next/server";
 import { BRIEFING_PROMPT, runAgent } from "@/lib/agent";
 import { loadDb, updateDb } from "@/lib/db";
@@ -8,12 +9,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 180;
 
 /** The last briefing, if any. */
-export async function GET() {
+async function handleGET() {
   return NextResponse.json({ briefing: loadDb().briefing ?? null });
 }
 
 /** Run the agent across every circle, streaming its steps, and keep the result. */
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   if (!agentConfigured()) return fail("The agent needs an API key. Add ANTHROPIC_API_KEY and restart.", 503);
   const origin = baseUrl(req);
   return agentStream(async (send) => {
@@ -23,3 +24,6 @@ export async function POST(req: Request) {
     return { reply: result.reply, actions: result.actions, at: briefing.at };
   });
 }
+
+export const GET = withAccount(handleGET);
+export const POST = withAccount(handlePOST);

@@ -3,7 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ActivityItem, Club, Cycle, Db, Member } from "./types";
 
-const DB_PATH = path.join(process.cwd(), "data", "db.json");
+import { createHash } from "node:crypto";
+import { currentAccount } from "./account-context";
+
+function dbPath() {
+  const id = createHash("sha256").update(currentAccount().id).digest("hex");
+  return path.join(process.env.ACCOUNT_DATA_DIR || path.join(process.cwd(), "data", "accounts"), `${id}.json`);
+}
 
 type Seat = Omit<Member, "turn" | "paypalEmail">;
 
@@ -169,6 +175,8 @@ const HISTORY: Record<string, Record<string, [string, number, number]>> = {
 export function seedDb(): Db {
   const clubs = [ubuntuCircle(), leicesterRound(), sowetoStokvel()];
   for (const club of clubs) {
+    club.treasurerName = currentAccount().name;
+    club.sample = true;
     for (const m of club.members) {
       const h = HISTORY[club.id]?.[m.id];
       if (h) m.history = { since: h[0], onTime: h[1], late: h[2] };
@@ -178,24 +186,30 @@ export function seedDb(): Db {
 }
 
 export function loadDb(): Db {
+  const DB_PATH = dbPath();
   if (fs.existsSync(DB_PATH)) {
     const raw = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
     if (raw?.version === 2) return raw as Db;
   }
-  const db = seedDb();
+  const db: Db = { version: 2, runId: randomUUID(), clubs: [], memberships: [] };
   saveDb(db);
   return db;
 }
 
 export function saveDb(db: Db): void {
+  const DB_PATH = dbPath();
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const tmp = `${DB_PATH}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
   fs.renameSync(tmp, DB_PATH);
 }
 
+/** Replace sample circles only. Never discard a user's groups or memberships. */
 export function resetDb(): Db {
-  const db = seedDb();
+  const db = loadDb();
+  const samples = seedDb().clubs.map((club) => ({ ...club, id: `${club.id}-${randomUUID().slice(0, 8)}` }));
+  db.clubs = [...db.clubs.filter((club) => !club.sample), ...samples];
+  delete db.briefing;
   saveDb(db);
   return db;
 }
@@ -223,6 +237,7 @@ export function updateClub<T>(clubId: string, fn: (club: Club) => T): T {
 }
 
 export function currentCycle(club: Club): Cycle {
+  if (club.status === "draft") throw new Error("This circle has not launched yet.");
   const cycle = club.cycles.find((c) => c.number === club.currentCycle);
   if (!cycle) throw new Error(`Cycle ${club.currentCycle} not found`);
   return cycle;

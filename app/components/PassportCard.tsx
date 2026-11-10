@@ -44,7 +44,7 @@ export default function PassportCard({ member, clubs, onClose }: { member: Membe
         </div>
 
         <dl className="passport-stats">
-          <div><dt>On time</dt><dd>{Math.round(p.onTimeRate * 100)}%</dd></div>
+          <div><dt>On time</dt><dd>{p.payments ? `${Math.round(p.onTimeRate * 100)}%` : "—"}</dd></div>
           <div><dt>Payments</dt><dd>{p.payments}</dd></div>
           <div><dt>Streak</dt><dd>{p.streak}</dd></div>
           <div><dt>Paid in</dt><dd>US${p.contributed.toLocaleString()}</dd></div>

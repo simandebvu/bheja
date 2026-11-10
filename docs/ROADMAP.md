@@ -13,11 +13,15 @@ These are proposed directions, not delivery promises. The current release is a s
 
 ## Foundation for a controlled pilot
 
-- [ ] Real authentication, roles and server-side authorization for every mutation
+- [x] Verified email accounts, Resend password resets, server sessions and account-scoped API authorization
+- [x] Four-step circle creation, Resend invitations and verified-email acceptance
+- [x] Treasurer/member access boundaries, member home and launch checklist
+- [ ] Expanded roles, invitations after launch and subsequent rotations
 - [ ] Transactional database, migrations and concurrency-safe accounting
 - [ ] Verified payment webhooks and reconciliation of pending/failed payouts
 - [ ] Durable agent jobs, rate limits and audit logs
-- [ ] Automated tests for payment state transitions and approval boundaries
+- [x] Automated tests for onboarding, invitation boundaries and complete mock payout rotations
+- [ ] Live PayPal reconciliation and webhook integration tests
 - [ ] Privacy controls, retention policy and member consent
 - [ ] Native-speaker review of templates and generated-message quality
 

@@ -65,7 +65,16 @@ function level(payments: number, rate: number): Passport["level"] {
 
 export function circleRecord(club: Club, memberId: string): CircleRecord | null {
   const m = club.members.find((x) => x.id === memberId);
-  if (!m?.history) return null;
+  if (!m) return null;
+  if (!m.history) {
+    const paid = club.cycles.flatMap((cycle) => {
+      const row = cycle.contributions.find((c) => c.memberId === memberId);
+      return row?.status === "paid" ? [{ row, due: cycle.dueDate }] : [];
+    });
+    const dots: Dot[] = paid.map(({ row, due }) => row.paidAt && Date.parse(row.paidAt) > Date.parse(`${due}T23:59:59Z`) ? "late" : "on");
+    const onTime = dots.filter((dot) => dot === "on").length;
+    return { clubId: club.id, clubName: club.name, since: (m.joinedAt || club.createdAt || new Date().toISOString()).slice(0, 7), payments: dots.length, onTime, late: dots.length - onTime, streak: endStreak(dots), contributed: dots.length * Number(club.contributionAmount), dots };
+  }
   const dots = sequence(m.history.onTime, m.history.late, `${club.id}:${m.id}`);
   const cycle = club.cycles.find((c) => c.number === club.currentCycle);
   const row = cycle?.contributions.find((c) => c.memberId === memberId);
