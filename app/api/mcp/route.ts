@@ -57,7 +57,9 @@ export async function POST(req: Request): Promise<Response> {
   return accountContext.run(account, async () => {
     if (Array.isArray(body)) {
       if (!body.length) return Response.json(rpcError(null, -32600, "Invalid Request"), { status: 400 });
-      const out = (await Promise.all(body.map((m) => dispatch(m as Rpc, req)))).filter(Boolean);
+      // Sequential: tools write to a single-file store, so concurrent calls could lose writes.
+      const out: object[] = [];
+      for (const m of body) { const r = await dispatch(m as Rpc, req); if (r) out.push(r); }
       return out.length ? Response.json(out) : new Response(null, { status: 202 });
     }
     const out = await dispatch(body as Rpc, req);
