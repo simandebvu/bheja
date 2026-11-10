@@ -65,9 +65,10 @@ export default function PayButtons({ clubId, memberId, clientId, amount }: { clu
     return () => buttons?.close?.();
   }, [clientId, clubId, memberId]);
 
-  if (done) return <div className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
+  const paid = <div key="paid" className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
 
   if (!clientId) {
+    if (done) return paid;
     return (
       <>
         <button
@@ -94,10 +95,13 @@ export default function PayButtons({ clubId, memberId, clientId, amount }: { clu
     );
   }
 
+  // Keep PayPal's container mounted but hidden once paid: if React reused this div for the
+  // "Paid" message, PayPal's injected buttons would stay visible inside it.
   return (
     <>
-      <div ref={ref} />
-      {error && <div className="pay-err">{error}</div>}
+      {done && paid}
+      <div key="paypal-buttons" ref={ref} style={done ? { display: "none" } : undefined} />
+      {error && !done && <div className="pay-err">{error}</div>}
     </>
   );
 }
