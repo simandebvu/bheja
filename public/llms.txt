@@ -1,0 +1,25 @@
+# Rotapot
+
+> Rotapot is an AI treasurer for rotating savings circles (stokvels, mukando, chama, ROSCAs). It tracks contributions, sends reminders, and prepares payouts. Only the human treasurer releases money.
+
+## MCP endpoint
+
+- URL: /api/mcp (Streamable HTTP, stateless, JSON responses, POST only)
+- Auth: `Authorization: Bearer rtp_...` (agent key created by the treasurer under "Connect an agent" on the circles home). Each key is scoped to that treasurer's account.
+- Methods: initialize, ping, tools/list, tools/call
+
+## Tools
+
+- list_circles: one line per circle (cycle, due date, who still owes, days late, recipient, payout status). Start here.
+- get_circle: full detail for one circle's current cycle, including every member's status.
+- verify_payment: check a member's contribution against PayPal; captures an approved checkout that was never captured.
+- send_reminder: send a payment reminder to a member in their language, within the circle's rules.
+- propose_payout: put the cycle's payout in front of the treasurer. Refuses unless everyone has paid. Moves no money.
+- get_member_passport: a member's trust passport (payment record across circles).
+- reply_to_member: send a message to one member, answering what they wrote.
+- propose_payment_plan: propose up to 3 instalments within 21 days, for the treasurer to approve.
+- check_payout_status: check a payout with PayPal Payouts.
+
+## Guardrail
+
+There is deliberately no tool that releases money or approves a plan. Agents can propose; only the treasurer releases payouts and approves plans, in the app.
