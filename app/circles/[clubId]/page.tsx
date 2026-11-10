@@ -69,11 +69,13 @@ export default function CircleDashboard() {
   async function release() {
     setReleasing(true);
     setReleaseError(null);
+    // Freeze the screen before the request: a background refresh landing while PayPal
+    // is processing would otherwise show the next cycle's empty pot before the pour.
+    frozen.current = true;
     const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId }) });
     const data = await res.json();
     if (res.ok) {
       // Hold the screen on the full pot while the gold pours, then let the circle turn.
-      frozen.current = true;
       setPouring(true);
       await new Promise((r) => setTimeout(r, 1700));
       setPouring(false);
@@ -83,7 +85,10 @@ export default function CircleDashboard() {
         id: data.batchId,
         text: `Done. **US$${data.amount}** is on its way to ${data.recipient} through PayPal Payouts, and I've let ${firstName(data.recipient)} know on WhatsApp.${data.next ? ` The circle has turned: next up is **${data.next}**.` : ""}`,
       });
-    } else setReleaseError(data.error);
+    } else {
+      frozen.current = false;
+      setReleaseError(data.error);
+    }
     setReleasing(false);
     refresh();
   }
