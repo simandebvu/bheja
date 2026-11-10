@@ -236,7 +236,8 @@ export async function approvePayout(clubId: string) {
   if (cycle.payout.status !== "awaiting_approval") throw new Error("No payout is waiting for approval.");
   const recipient = findMember(club, cycle.recipientId);
   const note = `${club.name}: your cycle ${cycle.number} payout of US$${cycle.payout.amount}.`;
-  const senderBatchId = `${club.id}-cycle-${cycle.number}`;
+  // Unique per demo run and cycle: a double click can't pay twice, and a reset demo can pay again.
+  const senderBatchId = `${club.id}-cycle-${cycle.number}-${loadDb().runId ?? "r0"}`;
 
   let batchId = `MOCK-${senderBatchId}`;
   let batchStatus = "SUCCESS";

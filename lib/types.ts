@@ -117,6 +117,8 @@ export interface Briefing {
 
 export interface Db {
   version: 2;
+  /** Changes on every demo reset, so PayPal batch ids stay unique across runs. */
+  runId?: string;
   clubs: Club[];
   briefing?: Briefing;
 }

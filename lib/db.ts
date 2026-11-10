@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ActivityItem, Club, Cycle, Db, Member } from "./types";
@@ -173,7 +174,7 @@ export function seedDb(): Db {
       if (h) m.history = { since: h[0], onTime: h[1], late: h[2] };
     }
   }
-  return { version: 2, clubs };
+  return { version: 2, runId: randomUUID().slice(0, 8), clubs };
 }
 
 export function loadDb(): Db {
