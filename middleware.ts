@@ -6,10 +6,12 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export function middleware(req: NextRequest) {
   if (req.cookies.get("rotapot_session")?.value) return NextResponse.next();
-  const url = req.nextUrl.clone();
-  url.pathname = "/";
-  url.search = `?next=${encodeURIComponent(req.nextUrl.pathname)}`;
-  return NextResponse.redirect(url);
+  // Behind a reverse proxy, build the redirect from the public host, not the internal one.
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
+  const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+  const target = new URL(`${proto}://${host}/`);
+  target.searchParams.set("next", req.nextUrl.pathname);
+  return NextResponse.redirect(target);
 }
 
 export const config = { matcher: ["/circles", "/circles/:path*"] };
