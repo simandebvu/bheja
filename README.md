@@ -1,5 +1,7 @@
 # Rotapot: an AI treasurer for savings clubs
 
+**Live demo:** https://rotapot.simakk.co.za (demo sign-in, PayPal sandbox) · Built for the PayPal AI Hackathon 2026 · MIT licence
+
 Millions of people in Southern Africa save through rotating savings clubs. South Africans call them **stokvels**; Zimbabweans call them **mukando** or **rounds**. Every month each member chips in, and the whole pot goes to one member, in turn.
 
 These clubs mostly run on WhatsApp groups, notebooks and trust. The treasurer chases late payers by hand, keeps the books in their head, and moves the money. Members are often spread across Johannesburg, Harare, Bulawayo and London, so cash doesn't work.
