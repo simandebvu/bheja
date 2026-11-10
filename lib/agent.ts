@@ -3,7 +3,10 @@ import { addNudge, proposePayout, refreshPayoutStatus, statusSummary, verifyCont
 import { loadClub } from "./db";
 import type { Language } from "./types";
 
-const MODEL = "claude-opus-4-8";
+// Point ANTHROPIC_BASE_URL at an Anthropic-compatible gateway (e.g. a LiteLLM
+// proxy) to route through it; the SDK reads that variable automatically.
+const MODEL = process.env.AGENT_MODEL || "claude-opus-4-8";
+const VIA_GATEWAY = Boolean(process.env.ANTHROPIC_BASE_URL);
 const MAX_STEPS = 12;
 
 const SYSTEM = `You are "Rotapot", the AI treasurer for a rotating savings club (called a stokvel in South Africa, a mukando or round in Zimbabwe). Members across South Africa, Zimbabwe and the diaspora each contribute a fixed amount every month through PayPal, and the whole pot goes to one member per month in rotation.
@@ -126,8 +129,8 @@ export async function runAgent(history: ChatTurn[], baseUrl: string): Promise<{ 
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 16000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "medium" },
+      // Gateways may not forward newer request fields; only send them first-party.
+      ...(VIA_GATEWAY ? {} : { thinking: { type: "adaptive" as const }, output_config: { effort: "medium" as const } }),
       system: SYSTEM,
       tools,
       messages,
