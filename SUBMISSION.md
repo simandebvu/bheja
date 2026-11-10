@@ -11,7 +11,7 @@ Rotapot
 An AI treasurer for stokvels, mukando and diaspora savings circles. Built on PayPal, with the treasurer in control.
 
 ## Links
-- Live demo: https://rotapot.simakk.co.za (judge login in *Notes for judges*, or sign up with any email)
+- Live demo: https://rotapot.simakk.co.za (sign up with any email; the verification email is real)
 - Code: https://github.com/simandebvu/rotapot
 - Video: https://youtu.be/6AdlBTQAcvI
 
@@ -96,8 +96,8 @@ nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal
 
 ## Notes for judges
 - The demo uses PayPal **sandbox**; no real money moves.
-- **Judge login:** `JUDGE_EMAIL` / `JUDGE_PASSWORD` (a verified account). Or sign up with your own email; the verification email is real.
-- **PayPal sandbox buyer** for checkout: `SANDBOX_BUYER_EMAIL` / `SANDBOX_BUYER_PASSWORD`.
+- **Sign up with any email address you can open.** Verification is a real email, and sign-up takes under a minute. There's no shared demo account, so your circles are private to you.
+- **Paying as a member:** log in with a PayPal **sandbox** personal account (`SANDBOX_BUYER_EMAIL` / `SANDBOX_BUYER_PASSWORD`, fake money only), or pay as a guest by card with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
 - Fastest path: sign in, choose **Explore sample circles**, watch the briefing, open a circle, pay as a member from the pay link, then release the payout. For the full invitation journey, use two email addresses.
 - To try the MCP server, create a key under **Connect an agent** and use the config snippet shown there. The README also has a curl example.
 - Historical payment records in the sample circles are seeded. Messages stay in the in-app outbox; they are not delivered through WhatsApp.
