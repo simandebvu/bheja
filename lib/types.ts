@@ -9,6 +9,21 @@ export interface Member {
   paypalEmail: string;
   /** Position in the payout rotation (1-based). */
   turn: number;
+  /** Payment record in this circle before the current cycle (seeded for the demo). */
+  history?: { since: string; onTime: number; late: number; lateAt?: number[] };
+}
+
+export interface Instalment {
+  amount: string;
+  due: string;
+  paid?: boolean;
+}
+
+export interface PaymentPlan {
+  status: "pending" | "approved" | "declined";
+  instalments: Instalment[];
+  reason: string;
+  requestedAt: string;
 }
 
 export type ContributionStatus = "unpaid" | "pending" | "paid";
@@ -21,6 +36,11 @@ export interface Contribution {
   paidAt?: string;
   /** Seeded rows from before the app existed have no PayPal record. */
   source?: "paypal" | "mock" | "seed";
+  /** Money received so far this cycle (for instalment plans). */
+  paidAmount?: number;
+  /** Amount of the checkout currently open with PayPal. */
+  pendingAmount?: string;
+  plan?: PaymentPlan;
 }
 
 export type PayoutStatus = "none" | "awaiting_approval" | "sent" | "failed";
@@ -45,7 +65,7 @@ export interface Cycle {
   payout: Payout;
 }
 
-export type MessageKind = "reminder" | "receipt" | "payout";
+export type MessageKind = "reminder" | "receipt" | "payout" | "agent" | "member" | "plan";
 
 export interface Nudge {
   id: string;
@@ -53,6 +73,8 @@ export interface Nudge {
   language: Language;
   message: string;
   kind: MessageKind;
+  /** "in" = the member wrote to the circle; default "out". */
+  direction?: "in" | "out";
   channel: "whatsapp";
   createdAt: string;
 }

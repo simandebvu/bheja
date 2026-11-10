@@ -150,8 +150,30 @@ function sowetoStokvel(): Club {
   };
 }
 
+/** Each member's record in the circle before this cycle: [since, on-time payments, late payments]. */
+const HISTORY: Record<string, Record<string, [string, number, number]>> = {
+  "ubuntu-circle": {
+    tendai: ["2023-09", 37, 1], sipho: ["2024-03", 25, 7], rudo: ["2023-09", 38, 0],
+    thandiwe: ["2023-09", 37, 1], lerato: ["2025-01", 20, 2], nyasha: ["2024-09", 26, 0],
+  },
+  "leicester-round": {
+    chipo: ["2025-06", 17, 0], farai: ["2025-06", 16, 1], tatenda: ["2025-06", 17, 0], rudo: ["2025-06", 17, 0], nkosana: ["2025-06", 15, 2],
+  },
+  "soweto-stokvel": {
+    nomsa: ["2019-03", 92, 0], palesa: ["2019-03", 88, 4], kgomotso: ["2020-03", 77, 3], thandeka: ["2019-03", 85, 7],
+    rudo: ["2023-03", 44, 0], busi: ["2019-03", 90, 2], zanele: ["2022-03", 51, 1], mpho: ["2024-01", 32, 2],
+  },
+};
+
 export function seedDb(): Db {
-  return { version: 2, clubs: [ubuntuCircle(), leicesterRound(), sowetoStokvel()] };
+  const clubs = [ubuntuCircle(), leicesterRound(), sowetoStokvel()];
+  for (const club of clubs) {
+    for (const m of club.members) {
+      const h = HISTORY[club.id]?.[m.id];
+      if (h) m.history = { since: h[0], onTime: h[1], late: h[2] };
+    }
+  }
+  return { version: 2, clubs };
 }
 
 export function loadDb(): Db {

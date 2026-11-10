@@ -1,5 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { addReminder, overview, proposePayout, refreshPayoutStatus, statusSummary, verifyContribution } from "./club";
+import {
+  addReminder,
+  memberPassport,
+  overview,
+  proposePaymentPlan,
+  proposePayout,
+  refreshPayoutStatus,
+  replyToMember,
+  statusSummary,
+  verifyContribution,
+} from "./club";
 import { loadClub, loadDb } from "./db";
 import { LANGUAGES, type Language } from "./types";
 
@@ -22,6 +32,7 @@ Hard rules:
 - Use tools for facts; never guess who has paid. If a member says they paid but the books disagree, verify_payment before answering.
 - Never show internal identifiers (club_id, member_id, message or order IDs) or tool names in your replies. Use people's names and circle names.
 - Don't recite the circle's rules back unless asked.
+- Members can ask for more time or to split a payment. You may propose a payment plan (at most 3 instalments, adding up to what they still owe, all within 21 days of the due date) but only Rudo approves it. Weigh their track record: someone with years of on-time payments deserves the benefit of the doubt; say so. Paying an instalment early is normal and good, not a warning sign. A contribution the books mark as paid counts as paid unless verify_payment shows a problem.
 - Replies are short: at most 4 sentences, or a short list of at most 5 items. No headings.`;
 
 const clubIds = () => loadDb().clubs.map((c) => c.id);
@@ -70,6 +81,46 @@ function tools(): Anthropic.Tool[] {
       },
     },
     {
+      name: "get_member_passport",
+      description: "A member's trust passport: payment record across every circle they belong to (years saving, on-time rate, current streak). Use it before deciding how to treat a late payer or a plan request.",
+      input_schema: { type: "object", properties: { club_id, member_id: { type: "string" } }, required: ["club_id", "member_id"], additionalProperties: false },
+    },
+    {
+      name: "reply_to_member",
+      description: "Send a WhatsApp message to one member, in their language, answering what they wrote. Add a blank line and an 'EN:' translation after non-English text.",
+      input_schema: {
+        type: "object",
+        properties: { club_id, member_id: { type: "string" }, language: { type: "string", enum: LANGUAGES }, message: { type: "string" } },
+        required: ["club_id", "member_id", "language", "message"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "propose_payment_plan",
+      description: "Ask Rudo to approve an instalment plan for a member who can't pay in full on time. Instalments must add up to what they still owe and fall within 21 days of the due date. Moves no money.",
+      input_schema: {
+        type: "object",
+        properties: {
+          club_id,
+          member_id: { type: "string" },
+          instalments: {
+            type: "array",
+            minItems: 1,
+            maxItems: 3,
+            items: {
+              type: "object",
+              properties: { amount: { type: "string", description: "e.g. \"25.00\"" }, due: { type: "string", description: "YYYY-MM-DD" } },
+              required: ["amount", "due"],
+              additionalProperties: false,
+            },
+          },
+          reason: { type: "string", description: "One sentence for Rudo, including their track record." },
+        },
+        required: ["club_id", "member_id", "instalments", "reason"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "check_payout_status",
       description: "Check a payout with PayPal Payouts. Defaults to the current cycle; pass an earlier cycle number for one already sent.",
       input_schema: { type: "object", properties: { club_id, cycle: { type: "integer" } }, required: ["club_id"], additionalProperties: false },
@@ -113,6 +164,18 @@ async function runTool(name: string, input: Record<string, unknown>, baseUrl: st
       const r = proposePayout(clubId, String(input.reason));
       return { result: r, summary: r.ok ? `Payout for ${clubName()} ready for you` : `${clubName()} payout not ready` };
     }
+    case "get_member_passport": {
+      const r = memberPassport(clubId, String(input.member_id));
+      return { result: r, summary: `${memberName(input.member_id)}: ${r.on_time_rate} on time` };
+    }
+    case "reply_to_member": {
+      replyToMember(clubId, String(input.member_id), input.language as Language, String(input.message));
+      return { result: { sent: true }, summary: `Replied to ${memberName(input.member_id)} in ${input.language}` };
+    }
+    case "propose_payment_plan": {
+      const r = proposePaymentPlan(clubId, String(input.member_id), input.instalments as { amount: string; due: string }[], String(input.reason));
+      return { result: r, summary: `Plan for ${memberName(input.member_id)} sent to you` };
+    }
     case "check_payout_status": {
       const r = await refreshPayoutStatus(clubId, typeof input.cycle === "number" ? input.cycle : undefined);
       return { result: r, summary: `Checked ${clubName()} payout` };
@@ -132,6 +195,11 @@ export type AgentEvent =
 
 export const BRIEFING_PROMPT =
   "Good morning. Go through all my circles. Following each circle's own rules, send any reminders that are due and propose any payouts that are ready. Then brief me in at most 4 short bullets, most urgent first: what you did, and what needs me.";
+
+/** A member's WhatsApp message, handled by the agent end to end. */
+export function memberMessagePrompt(o: { name: string; language: string; club: string; text: string; today: string }) {
+  return `${o.name} (writes in ${o.language}) just sent this WhatsApp message to ${o.club}:\n"${o.text}"\n\nToday is ${o.today}. Handle it: check the books and PayPal if they mention paying, look at their track record if they ask for time, and answer them with reply_to_member in ${o.language}. If they ask for more time or to split the payment, propose a sensible plan for Rudo to approve and tell them Rudo will confirm. Then give Rudo a one or two sentence summary of what happened.`;
+}
 
 export async function runAgent(
   history: ChatTurn[],

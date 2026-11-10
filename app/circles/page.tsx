@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Briefing, Club } from "@/lib/types";
 import { streamAgent, Trace, upsertStep, type Step } from "../components/agentClient";
 import MiniRing from "../components/MiniRing";
+import { ledgerTotals, sinceLabel } from "@/lib/passport";
 import { LogoMark, Markdown, countriesOf, firstName } from "../components/ui";
 
 type Data = { clubs: Club[]; briefing: Briefing | null; paypalMode: "sandbox" | "mock"; agentReady: boolean };
@@ -101,6 +102,8 @@ export default function Circles() {
   const flags = countriesOf(clubs.flatMap((c) => c.members.map((m) => m.city)));
   const monthly = clubs.reduce((sum, c) => sum + c.members.length * Number(c.contributionAmount), 0);
   const attention = clubs.map((c) => ({ club: c, s: circleState(c) })).filter((x) => x.s.tone !== "calm");
+  const record = ledgerTotals(clubs);
+  const earliest = clubs.flatMap((c) => c.members.map((m) => m.history?.since ?? "9999")).sort()[0];
 
   return (
     <main className="app home">
@@ -153,6 +156,16 @@ export default function Circles() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="record" aria-label="Your circles' payment record">
+        <div className="record-figure"><b>{record.payments.toLocaleString()}</b><span>contributions on record</span></div>
+        <div className="record-figure"><b>{Math.round(record.rate * 100)}%</b><span>paid on time</span></div>
+        <div className="record-figure"><b>US${record.saved.toLocaleString()}</b><span>saved together since {sinceLabel(earliest)}</span></div>
+        <p className="record-note">
+          Every on-time payment builds each member&apos;s <b>trust passport</b>: a payment history most of them have never had on paper.
+          Open any circle and tap a member to see theirs.
+        </p>
       </section>
 
       <section className="circles" aria-label="Your circles">

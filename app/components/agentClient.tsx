@@ -66,6 +66,12 @@ export function describeStep(step: Step, clubs: Club[]): { label: string; call: 
     case "send_reminder": return { label: `Writing to ${who(i.member_id)} in ${String(i.language)}`, call: `send_reminder(${i.member_id}, ${LANG_CODE[String(i.language)] ?? i.language})` };
     case "propose_payout": return { label: `Putting ${circle}'s payout up for your approval`, call: `propose_payout(${i.club_id})` };
     case "check_payout_status": return { label: `Checking ${circle}'s payout with PayPal`, call: `check_payout_status(${i.club_id})` };
+    case "get_member_passport": return { label: `Looking at ${who(i.member_id)}'s track record`, call: `get_member_passport(${i.member_id})` };
+    case "reply_to_member": return { label: `Replying to ${who(i.member_id)} in ${String(i.language)}`, call: `reply_to_member(${i.member_id}, ${LANG_CODE[String(i.language)] ?? i.language})` };
+    case "propose_payment_plan": {
+      const parts = Array.isArray(i.instalments) ? (i.instalments as { amount: string }[]).map((x) => `$${Number(x.amount)}`).join(" + ") : "";
+      return { label: `Asking you to approve a plan for ${who(i.member_id)}`, call: `propose_payment_plan(${i.member_id}, ${parts})` };
+    }
     default: return { label: step.tool, call: `${step.tool}()` };
   }
 }

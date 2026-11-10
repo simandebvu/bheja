@@ -1,9 +1,10 @@
 /** Domain actions shared by the API routes and the agent's tools. */
 import { randomUUID } from "node:crypto";
 import { currentCycle, findClub, findMember, loadClub, loadDb, logActivity, updateClub, updateDb } from "./db";
-import { payoutMessage, receiptMessage } from "./messages";
+import { GREETING, payoutMessage, receiptMessage } from "./messages";
+import { circleRecord, passportFor } from "./passport";
 import * as paypal from "./paypal";
-import type { Club, Language, MessageKind } from "./types";
+import type { Club, Contribution, Instalment, Language, MessageKind } from "./types";
 
 const REMINDER_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
@@ -14,13 +15,14 @@ export function daysLate(dueDate: string, now = new Date()): number {
 
 const first = (name: string) => name.split(" ")[0];
 
-function pushMessage(club: Club, memberId: string, language: Language, message: string, kind: MessageKind) {
+function pushMessage(club: Club, memberId: string, language: Language, message: string, kind: MessageKind, direction: "in" | "out" = "out") {
   const nudge = {
     id: randomUUID(),
     memberId,
     language,
     message,
     kind,
+    direction,
     channel: "whatsapp" as const,
     createdAt: new Date().toISOString(),
   };
@@ -58,12 +60,16 @@ export function statusSummary(clubId: string) {
   const rows = cycle.contributions.map((c) => {
     const m = findMember(club, c.memberId);
     const lastReminder = [...club.outbox].reverse().find((n) => n.memberId === m.id && n.kind === "reminder");
+    const rec = circleRecord(club, m.id);
     return {
       member_id: m.id,
       name: m.name,
       city: m.city,
       language: m.language,
       status: c.status,
+      paid_so_far: c.status === "paid" ? Number(club.contributionAmount) : (c.paidAmount ?? 0),
+      payment_plan: c.plan ? { status: c.plan.status, instalments: c.plan.instalments } : null,
+      track_record: rec ? `${rec.onTime} of ${rec.payments} payments on time in this circle since ${rec.since}; current on-time streak ${rec.streak}` : "new member",
       days_late: c.status === "paid" ? 0 : daysLate(cycle.dueDate),
       reminded_recently: Boolean(lastReminder && now - Date.parse(lastReminder.createdAt) < REMINDER_COOLDOWN_MS),
       verified_with_paypal: c.source === "paypal",
@@ -89,17 +95,35 @@ export function statusSummary(clubId: string) {
   };
 }
 
-function markPaid(club: Club, memberId: string, source: "paypal" | "mock", captureId?: string) {
+/** What the member owes right now: the next instalment if on an approved plan, else the balance. */
+export function amountDueNow(club: Club, row: Contribution): number {
+  const full = Number(club.contributionAmount);
+  if (row.plan?.status === "approved") {
+    const next = row.plan.instalments.find((i) => !i.paid);
+    if (next) return Number(next.amount);
+  }
+  return Math.max(0, full - (row.paidAmount ?? 0));
+}
+
+function markPaid(club: Club, memberId: string, source: "paypal" | "mock", amount: number, captureId?: string) {
   const cycle = currentCycle(club);
   const row = cycle.contributions.find((x) => x.memberId === memberId);
   if (!row) throw new Error(`Unknown member "${memberId}"`);
-  row.status = "paid";
+  const full = Number(club.contributionAmount);
+  row.paidAmount = Math.min(full, (row.paidAmount ?? 0) + amount);
+  if (row.plan?.status === "approved") {
+    const next = row.plan.instalments.find((i) => !i.paid);
+    if (next) next.paid = true;
+  }
   row.paidAt = new Date().toISOString();
   row.source = source;
+  row.pendingAmount = undefined;
   if (captureId) row.paypalCaptureId = captureId;
+  row.status = row.paidAmount >= full ? "paid" : "unpaid";
   const m = findMember(club, memberId);
-  logActivity(club, "payment", `${m.name} paid US$${club.contributionAmount}${source === "paypal" ? ` via PayPal (capture ${captureId ?? "n/a"})` : " (mock mode)"}.`);
-  pushMessage(club, m.id, m.language, receiptMessage(m.language, first(m.name), club.contributionAmount), "receipt");
+  const amt = String(Number(amount.toFixed(2)));
+  logActivity(club, "payment", `${m.name} paid US$${amt}${row.status === "paid" ? "" : ` (US$${full - row.paidAmount} still to come)`}${source === "paypal" ? ` via PayPal (capture ${captureId ?? "n/a"})` : " (mock mode)"}.`);
+  pushMessage(club, m.id, m.language, receiptMessage(m.language, first(m.name), amt), "receipt");
 }
 
 /** Create a PayPal order for a member's contribution in the current cycle. */
@@ -109,9 +133,10 @@ export async function startContribution(clubId: string, memberId: string): Promi
   const member = findMember(club, memberId);
   const contribution = cycle.contributions.find((c) => c.memberId === memberId)!;
   if (contribution.status === "paid") throw new Error(`${member.name} has already paid for cycle ${cycle.number}.`);
+  const due = amountDueNow(club, contribution).toFixed(2);
 
   const order = await paypal.createOrder({
-    amount: club.contributionAmount,
+    amount: due,
     customId: `${club.id}:${cycle.number}:${memberId}`,
     description: `${club.name} - cycle ${cycle.number} contribution (${member.name})`,
   });
@@ -119,6 +144,7 @@ export async function startContribution(clubId: string, memberId: string): Promi
     const row = currentCycle(c).contributions.find((x) => x.memberId === memberId)!;
     row.status = "pending";
     row.paypalOrderId = order.id;
+    row.pendingAmount = due;
   });
   return { orderId: order.id };
 }
@@ -132,7 +158,7 @@ export async function completeContribution(orderId: string) {
     for (const club of db.clubs) {
       const row = currentCycle(club).contributions.find((x) => x.paypalOrderId === orderId);
       if (row) {
-        if (row.status !== "paid") markPaid(club, row.memberId, "paypal", captureId);
+        if (row.status !== "paid") markPaid(club, row.memberId, "paypal", Number(row.pendingAmount ?? club.contributionAmount), captureId);
         return { clubId: club.id, memberId: row.memberId, captureId };
       }
     }
@@ -145,7 +171,7 @@ export function mockContribution(clubId: string, memberId: string) {
   updateClub(clubId, (club) => {
     const row = currentCycle(club).contributions.find((x) => x.memberId === memberId);
     if (!row) throw new Error(`Unknown member "${memberId}"`);
-    if (row.status !== "paid") markPaid(club, memberId, "mock");
+    if (row.status !== "paid") markPaid(club, memberId, "mock", amountDueNow(club, row));
   });
 }
 
@@ -154,6 +180,12 @@ export async function verifyContribution(clubId: string, memberId: string) {
   const club = loadClub(clubId);
   const row = currentCycle(club).contributions.find((x) => x.memberId === memberId);
   if (!row) throw new Error(`Unknown member "${memberId}"`);
+  if (row.status === "paid" && row.source === "mock") {
+    return { member_id: memberId, status: "paid", paypal: "Received in demo mode (no PayPal account is connected in this environment). Treat it as received." };
+  }
+  if (row.status === "paid" && row.source === "seed") {
+    return { member_id: memberId, status: "paid", paypal: "Received before this cycle's PayPal records; confirmed by the treasurer. Treat it as received." };
+  }
   if (!row.paypalOrderId) {
     return { member_id: memberId, status: row.status, paypal: "No PayPal checkout on record for this cycle." };
   }
@@ -243,6 +275,85 @@ export async function refreshPayoutStatus(clubId: string, cycleNumber?: number) 
     c.cycles.find((x) => x.number === cycle.number)!.payout.paypalBatchStatus = batch.batch_header.batch_status;
   });
   return { cycle: cycle.number, status: p.status, paypal_batch_status: batch.batch_header.batch_status };
+}
+
+/** A member wrote to the circle on WhatsApp. */
+export function recordInbound(clubId: string, memberId: string, text: string) {
+  return updateClub(clubId, (club) => {
+    const m = findMember(club, memberId);
+    const msg = pushMessage(club, memberId, m.language, text, "member", "in");
+    logActivity(club, "nudge", `${m.name} replied on WhatsApp.`);
+    return { member: m, message: msg };
+  });
+}
+
+/** The agent answers a member directly. */
+export function replyToMember(clubId: string, memberId: string, language: Language, text: string) {
+  return updateClub(clubId, (club) => {
+    const m = findMember(club, memberId);
+    pushMessage(club, memberId, language, text, "agent");
+    logActivity(club, "agent", `Agent replied to ${m.name} (${language}).`);
+  });
+}
+
+/** Agent may only propose a plan; the treasurer approves or declines it. */
+export function proposePaymentPlan(clubId: string, memberId: string, instalments: Instalment[], reason: string) {
+  return updateClub(clubId, (club) => {
+    const cycle = currentCycle(club);
+    const m = findMember(club, memberId);
+    const row = cycle.contributions.find((c) => c.memberId === memberId)!;
+    if (row.status === "paid") throw new Error(`${m.name} has already paid this cycle.`);
+    if (!instalments.length || instalments.length > 3) throw new Error("A plan needs 1 to 3 instalments.");
+    const owed = Number(club.contributionAmount) - (row.paidAmount ?? 0);
+    const total = instalments.reduce((s, i) => s + Number(i.amount), 0);
+    if (Math.abs(total - owed) > 0.01) throw new Error(`Instalments must add up to the US$${owed} still owed (they add up to US$${total}).`);
+    const latest = new Date(`${cycle.dueDate}T00:00:00Z`).getTime() + 21 * 86_400_000;
+    for (const i of instalments) {
+      if (Number.isNaN(Date.parse(i.due))) throw new Error(`Bad date ${i.due}; use YYYY-MM-DD.`);
+      if (Date.parse(i.due) > latest) throw new Error("Every instalment must fall within 21 days of the original due date.");
+    }
+    row.plan = {
+      status: "pending",
+      instalments: instalments.map((i) => ({ amount: Number(i.amount).toFixed(2), due: i.due.slice(0, 10) })),
+      reason,
+      requestedAt: new Date().toISOString(),
+    };
+    logActivity(club, "agent", `Agent proposed a payment plan for ${m.name}: ${row.plan.instalments.map((i) => `US$${Number(i.amount)} by ${i.due}`).join(", ")}. Waiting for treasurer approval.`);
+    return { ok: true, awaiting_treasurer: true };
+  });
+}
+
+/** Treasurer's decision on a plan, from the dashboard. */
+export function decidePlan(clubId: string, memberId: string, approve: boolean) {
+  return updateClub(clubId, (club) => {
+    const row = currentCycle(club).contributions.find((c) => c.memberId === memberId);
+    const m = findMember(club, memberId);
+    if (!row?.plan || row.plan.status !== "pending") throw new Error("No plan is waiting for a decision.");
+    row.plan.status = approve ? "approved" : "declined";
+    const when = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const plan = row.plan.instalments.map((i) => `US$${Number(i.amount)} by ${when(i.due)}`).join(", then ");
+    const text = approve
+      ? `${GREETING[m.language]} ${first(m.name)}! Rudo approved your plan: ${plan}. Use the same pay link each time. Thank you for letting us know.`
+      : `${GREETING[m.language]} ${first(m.name)}, Rudo can't approve a plan this cycle. Please pay the US$${Number(club.contributionAmount)} as soon as you can, or reply here to talk it through.`;
+    pushMessage(club, memberId, m.language, text, "plan");
+    logActivity(club, "system", `Treasurer ${approve ? "approved" : "declined"} ${m.name}'s payment plan.`);
+    return { ok: true };
+  });
+}
+
+export function memberPassport(clubId: string, memberId: string) {
+  const db = loadDb();
+  const m = findMember(findClub(db, clubId), memberId);
+  const p = passportFor(db.clubs, m.name);
+  return {
+    name: p.name,
+    saving_since: p.since,
+    payments: p.payments,
+    on_time_rate: `${Math.round(p.onTimeRate * 100)}%`,
+    current_streak: p.streak,
+    level: p.level,
+    circles: p.circles.map((c) => ({ circle: c.clubName, payments: c.payments, on_time: c.onTime })),
+  };
 }
 
 export { findClub };

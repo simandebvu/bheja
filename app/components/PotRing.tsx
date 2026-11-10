@@ -34,6 +34,7 @@ export default function PotRing({
   target,
   daysLate,
   justPaid,
+  pouring = false,
 }: {
   members: Member[];
   cycle: Cycle;
@@ -41,6 +42,8 @@ export default function PotRing({
   target: number;
   daysLate: number;
   justPaid: Set<string>;
+  /** Play the payout: gold flows from every share into the recipient. */
+  pouring?: boolean;
 }) {
   const n = members.length;
   const step = 360 / n;
@@ -50,6 +53,8 @@ export default function PotRing({
   const rotation = -(recipient.turn - 1) * step;
   const paidCount = cycle.contributions.filter((c) => c.status === "paid").length;
   const allPaid = paidCount === n;
+  const share = target / n;
+  const top = polar(AVATAR_R, -90);
 
   return (
     <figure className="pot" aria-label={`Pot: US$${collected} of US$${target} collected. ${firstName(recipient.name)} receives this cycle.`}>
@@ -75,7 +80,8 @@ export default function PotRing({
                 {/* the member's share of the pot */}
                 <path
                   d={arc(R, centre - step / 2 + GAP_DEG / 2, centre + step / 2 - GAP_DEG / 2)}
-                  className={`seg ${status === "paid" ? "seg-paid" : ""} ${justPaid.has(m.id) ? "seg-fresh" : ""}`}
+                  className={`seg ${status === "paid" || (contribution?.paidAmount ?? 0) > 0 ? "seg-paid" : ""} ${justPaid.has(m.id) ? "seg-fresh" : ""}`}
+                  style={{ strokeDashoffset: 100 - Math.round(100 * (status === "paid" ? 1 : Math.min(1, (contribution?.paidAmount ?? 0) / share))) }}
                   pathLength={100}
                   fill="none"
                   strokeWidth={STROKE - 6}
@@ -100,6 +106,29 @@ export default function PotRing({
             );
           })}
         </g>
+
+        {/* the payout: gold flows round the ring into the recipient */}
+        {pouring && (
+          <g className="pour" aria-hidden>
+            {ordered.flatMap((m, i) => {
+              const screen = -90 + i * step + rotation;
+              return [-14, 0, 14].map((off, k) => {
+                const from = polar(R, screen + off);
+                return (
+                  <circle
+                    key={`${m.id}-${k}`}
+                    className="coin"
+                    cx={from.x}
+                    cy={from.y}
+                    r={k === 1 ? 7 : 5}
+                    style={{ ["--dx" as string]: `${top.x - from.x}px`, ["--dy" as string]: `${top.y - from.y}px`, animationDelay: `${i * 70 + k * 90}ms` }}
+                  />
+                );
+              });
+            })}
+            <circle cx={top.x} cy={top.y} r={30} className="pour-burst" />
+          </g>
+        )}
 
         {/* the money in the middle */}
         <circle cx={C} cy={C} r={R - STROKE / 2 - 8} fill="var(--surface)" />

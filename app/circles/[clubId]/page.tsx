@@ -5,10 +5,12 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Club, Cycle, Member } from "@/lib/types";
 import AgentConsole from "../../components/AgentConsole";
+import PassportCard from "../../components/PassportCard";
 import Phone from "../../components/Phone";
 import PotRing from "../../components/PotRing";
 import Rotation from "../../components/Rotation";
 import { Avatar, COUNTRY, LogoMark, countriesOf, firstName } from "../../components/ui";
+import { circleRecord } from "@/lib/passport";
 
 type State = { club: Club; paypalMode: "sandbox" | "mock"; agentReady: boolean };
 type Sent = { recipient: string; amount: string; batchId: string; batchStatus: string; next: string | null };
@@ -32,8 +34,13 @@ export default function CircleDashboard() {
   const [releaseError, setReleaseError] = useState<string | null>(null);
   const [justPaid, setJustPaid] = useState<Set<string>>(new Set());
   const prevPaid = useRef<Set<string> | null>(null);
+  const [pouring, setPouring] = useState(false);
+  const frozen = useRef(false);
+  const [passportOf, setPassportOf] = useState<Member | null>(null);
+  const [deciding, setDeciding] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (frozen.current) return;
     const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
     if (res.status === 404) return setMissing(true);
     if (!res.ok) return;
@@ -65,6 +72,12 @@ export default function CircleDashboard() {
     const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId }) });
     const data = await res.json();
     if (res.ok) {
+      // Hold the screen on the full pot while the gold pours, then let the circle turn.
+      frozen.current = true;
+      setPouring(true);
+      await new Promise((r) => setTimeout(r, 1700));
+      setPouring(false);
+      frozen.current = false;
       setSent(data);
       setNote({
         id: data.batchId,
@@ -72,6 +85,13 @@ export default function CircleDashboard() {
       });
     } else setReleaseError(data.error);
     setReleasing(false);
+    refresh();
+  }
+
+  async function decide(memberId: string, approve: boolean) {
+    setDeciding(memberId);
+    await fetch(`/api/clubs/${clubId}/plans`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId, approve }) });
+    setDeciding(null);
     refresh();
   }
 
@@ -103,8 +123,9 @@ export default function CircleDashboard() {
   const cycle = club.cycles.find((c) => c.number === club.currentCycle) as Cycle;
   const member = (id: string) => club.members.find((m) => m.id === id) as Member;
   const recipient = member(cycle.recipientId);
-  const paid = cycle.contributions.filter((c) => c.status === "paid").length;
-  const collected = paid * Number(club.contributionAmount);
+  const collected = cycle.contributions.reduce((sum, c) => sum + (c.status === "paid" ? Number(club.contributionAmount) : c.paidAmount ?? 0), 0);
+  const pendingPlans = cycle.contributions.filter((c) => c.plan?.status === "pending");
+  const shortDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   const target = Number(cycle.payout.amount);
   const late = daysLate(cycle.dueDate);
   const awaiting = cycle.payout.status === "awaiting_approval";
@@ -141,7 +162,27 @@ export default function CircleDashboard() {
             <span className="muted">Due {dayMonth(cycle.dueDate)}</span>
           </div>
 
-          <PotRing members={club.members} cycle={cycle} collected={collected} target={target} daysLate={late} justPaid={justPaid} />
+          <PotRing members={club.members} cycle={cycle} collected={collected} target={target} daysLate={late} justPaid={justPaid} pouring={pouring} />
+
+          {pendingPlans.map((c) => {
+            const m = member(c.memberId);
+            const rec = circleRecord(club, m.id);
+            return (
+              <div key={m.id} className="request">
+                <div className="request-copy">
+                  <span className="release-eyebrow">Plan request · needs your answer</span>
+                  <b>{m.name} asks to pay in {c.plan!.instalments.length} part{c.plan!.instalments.length > 1 ? "s" : ""}</b>
+                  <span className="request-plan">{c.plan!.instalments.map((i) => `US$${Number(i.amount)} by ${shortDate(i.due)}`).join("  ·  ")}</span>
+                  <span className="release-why">{c.plan!.reason}</span>
+                  {rec && <button className="request-record" onClick={() => setPassportOf(m)}>{rec.onTime} of {rec.payments} paid on time · view passport</button>}
+                </div>
+                <div className="request-actions">
+                  <button className="approve" disabled={deciding === m.id} onClick={() => decide(m.id, true)}>Approve plan</button>
+                  <button className="decline" disabled={deciding === m.id} onClick={() => decide(m.id, false)}>Decline</button>
+                </div>
+              </div>
+            );
+          })}
 
           <div className={`release ${awaiting ? "armed" : sent ? "done" : ""}`}>
             {awaiting ? (
@@ -180,17 +221,26 @@ export default function CircleDashboard() {
               .map((c) => {
                 const m = member(c.memberId);
                 const country = COUNTRY[m.city];
+                const rec = circleRecord(club, m.id);
                 return (
                   <li key={m.id} className={c.status}>
-                    <Avatar member={m} size={32} />
-                    <div className="roster-who">
-                      <b>{m.name}</b>
-                      <span>{country?.flag} {m.city} · {m.language}</span>
-                    </div>
+                    <button className="roster-person" onClick={() => setPassportOf(m)} title="Open trust passport">
+                      <Avatar member={m} size={32} />
+                      <div className="roster-who">
+                        <b>{m.name}</b>
+                        <span>{country?.flag} {m.city} · {m.language}{rec ? ` · ${Math.round((rec.onTime / rec.payments) * 100)}% on time` : ""}</span>
+                      </div>
+                    </button>
                     {c.status === "paid" ? (
                       <span className="tag paid">{c.source === "paypal" ? "Paid via PayPal" : "Paid"}</span>
                     ) : c.status === "pending" ? (
                       <span className="tag pending">At checkout</span>
+                    ) : c.plan?.status === "approved" ? (
+                      <a className="tag plan" href={`/pay/${club.id}/${m.id}`} target="_blank" rel="noreferrer">
+                        Plan · {c.paidAmount ? `US$${c.paidAmount} in, ` : ""}next by {shortDate(c.plan.instalments.find((i) => !i.paid)?.due ?? cycle.dueDate)} ↗
+                      </a>
+                    ) : c.plan?.status === "pending" ? (
+                      <span className="tag pending">Plan requested</span>
                     ) : (
                       <a className={`tag ${late > 0 ? "late" : "due"}`} href={`/pay/${club.id}/${m.id}`} target="_blank" rel="noreferrer" title="Open this member's pay page">
                         {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · pay page ↗
@@ -217,8 +267,14 @@ export default function CircleDashboard() {
           </section>
         </div>
 
-        <Phone members={club.members} outbox={club.outbox} clubName={club.name} />
+        <Phone
+          club={club}
+          clubs={clubs.length ? clubs : [club]}
+          onChange={refresh}
+          onAgentNote={(text) => setNote({ id: `${Date.now()}`, text })}
+        />
       </div>
+      {passportOf && <PassportCard member={passportOf} clubs={clubs.length ? clubs : [club]} onClose={() => setPassportOf(null)} />}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { LogoMark, firstName } from "@/app/components/ui";
-import { daysLate } from "@/lib/club";
+import { amountDueNow, daysLate } from "@/lib/club";
 import { currentCycle, loadDb } from "@/lib/db";
 import { GREETING } from "@/lib/messages";
 import { paypalConfigured } from "@/lib/paypal";
@@ -22,7 +22,9 @@ export default async function PayPage({ params }: { params: Promise<{ clubId: st
   const myCycle = club.cycles.find((c) => c.recipientId === member.id)!;
   const late = daysLate(cycle.dueDate);
   const isRecipient = recipient.id === member.id;
-  const amount = Number(club.contributionAmount);
+  const amount = contribution && contribution.status !== "paid" ? amountDueNow(club, contribution) : Number(club.contributionAmount);
+  const plan = contribution?.plan?.status === "approved" ? contribution.plan : null;
+  const instalmentNo = plan ? plan.instalments.findIndex((i) => !i.paid) + 1 : 0;
 
   const turnText =
     myCycle.payout.status === "sent"
@@ -43,10 +45,13 @@ export default async function PayPage({ params }: { params: Promise<{ clubId: st
         </p>
         <h1 className="pay-club">{club.name}</h1>
         <div className="pay-amount">US${amount}</div>
+        {plan && instalmentNo > 0 && (
+          <p className="pay-plan">Instalment {instalmentNo} of {plan.instalments.length} of your agreed plan · due {dayMonth(plan.instalments[instalmentNo - 1].due)}</p>
+        )}
         <p className="pay-for">
           Cycle {cycle.number} of {club.cycles.length}. This month&apos;s pot goes to <b>{isRecipient ? "you" : recipient.name}</b>.
         </p>
-        {contribution?.status !== "paid" && (
+        {contribution?.status !== "paid" && !plan && (
           <span className={`pay-due ${late > 0 ? "" : "ontime"}`}>
             {late > 0 ? `Was due ${dayMonth(cycle.dueDate)} · ${late} day${late === 1 ? "" : "s"} late` : `Due ${dayMonth(cycle.dueDate)}`}
           </span>
