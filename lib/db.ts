@@ -41,7 +41,7 @@ export function seedClub(): Club {
       "Each member contributes US$50 by the 7th of every month.",
       "The full pot (US$300) is paid out to one member per month, in rotation order.",
       "A payout is only released once every member has paid, and only after the treasurer approves it.",
-      "Contributions more than 3 days late get a friendly reminder; more than 7 days late, the treasurer is told.",
+      "Anyone who misses the due date gets a friendly reminder in their own language; after 7 days late, the treasurer is told.",
     ],
     members,
     currentCycle: 3,

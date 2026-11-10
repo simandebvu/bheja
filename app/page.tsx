@@ -2,261 +2,198 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Club, Cycle, Member } from "@/lib/types";
+import AgentConsole from "./components/AgentConsole";
+import Phone from "./components/Phone";
+import PotRing from "./components/PotRing";
+import Rotation from "./components/Rotation";
+import { Avatar, COUNTRY, LogoMark, firstName } from "./components/ui";
 
 type State = { club: Club; paypalMode: "sandbox" | "mock"; agentReady: boolean };
-type Action = { tool: string; ok: boolean; summary: string };
-type Turn = { role: "user" | "assistant"; content: string; actions?: Action[] };
-
-const SUGGESTIONS = [
-  "Who still owes this month?",
-  "Remind everyone who's late, in their own language.",
-  "Thandiwe says she already paid. Can you check?",
-  "Is the pot ready to pay out?",
-];
+type Sent = { recipient: string; amount: string; batchId: string; batchStatus: string };
 
 function daysLate(due: string) {
   const ms = Date.now() - new Date(`${due}T23:59:59Z`).getTime();
   return ms > 0 ? Math.ceil(ms / 86_400_000) : 0;
 }
 
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+function stamp(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function Dashboard() {
+export default function Treasury() {
   const [state, setState] = useState<State | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const msgsRef = useRef<HTMLDivElement>(null);
+  const [releasing, setReleasing] = useState(false);
+  const [sent, setSent] = useState<Sent | null>(null);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
+  const [justPaid, setJustPaid] = useState<Set<string>>(new Set());
+  const prevPaid = useRef<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/state", { cache: "no-store" });
-    if (res.ok) setState(await res.json());
+    if (!res.ok) return;
+    const next: State = await res.json();
+    const cycle = next.club.cycles.find((c) => c.number === next.club.currentCycle)!;
+    const paidNow = new Set(cycle.contributions.filter((c) => c.status === "paid").map((c) => `${cycle.number}:${c.memberId}`));
+    if (prevPaid.current) {
+      const fresh = [...paidNow].filter((k) => !prevPaid.current!.has(k)).map((k) => k.split(":")[1]);
+      if (fresh.length) {
+        setJustPaid(new Set(fresh));
+        setTimeout(() => setJustPaid(new Set()), 2000);
+      }
+    }
+    prevPaid.current = paidNow;
+    setState(next);
   }, []);
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 3000);
+    const t = setInterval(refresh, 2500);
     return () => clearInterval(t);
   }, [refresh]);
 
-  useEffect(() => {
-    msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
-  }, [turns, busy]);
-
-  async function send(text: string) {
-    const content = text.trim();
-    if (!content || busy) return;
-    const next: Turn[] = [...turns, { role: "user", content }];
-    setTurns(next);
-    setInput("");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: next.map(({ role, content }) => ({ role, content })) }),
-      });
-      const data = await res.json();
-      setTurns([...next, res.ok ? { role: "assistant", content: data.reply, actions: data.actions } : { role: "assistant", content: `⚠️ ${data.error}` }]);
-    } catch (e) {
-      setTurns([...next, { role: "assistant", content: `⚠️ ${String(e)}` }]);
-    } finally {
-      setBusy(false);
-      refresh();
-    }
-  }
-
-  async function approve() {
-    setApproving(true);
-    setNotice(null);
+  async function release(recipient: Member, amount: string) {
+    setReleasing(true);
+    setReleaseError(null);
     const res = await fetch("/api/payout", { method: "POST" });
     const data = await res.json();
-    setNotice(res.ok ? `Payout sent via PayPal Payouts: batch ${data.batchId} (${data.batchStatus}).` : `Payout failed: ${data.error}`);
-    setApproving(false);
+    if (res.ok) setSent({ recipient: recipient.name, amount, batchId: data.batchId, batchStatus: data.batchStatus });
+    else setReleaseError(data.error);
+    setReleasing(false);
     refresh();
   }
 
   async function reset() {
     await fetch("/api/state", { method: "POST" });
-    setTurns([]);
-    setNotice(null);
+    setSent(null);
+    setReleaseError(null);
+    prevPaid.current = null;
     refresh();
   }
 
-  if (!state) return <main className="shell">Loading…</main>;
+  if (!state) {
+    return (
+      <main className="loading">
+        <LogoMark size={40} />
+      </main>
+    );
+  }
 
   const { club } = state;
   const cycle = club.cycles.find((c) => c.number === club.currentCycle) as Cycle;
   const member = (id: string) => club.members.find((m) => m.id === id) as Member;
+  const recipient = member(cycle.recipientId);
   const paid = cycle.contributions.filter((c) => c.status === "paid").length;
   const collected = paid * Number(club.contributionAmount);
   const target = Number(cycle.payout.amount);
-  const recipient = member(cycle.recipientId);
   const late = daysLate(cycle.dueDate);
+  const awaiting = cycle.payout.status === "awaiting_approval";
 
   return (
-    <main className="shell">
-      <div className="top">
+    <main className="app">
+      <header className="masthead">
         <div className="brand">
-          <div className="logo">R</div>
-          <div>
-            <h1>{club.name}</h1>
-            <p>
-              AI treasurer · {club.members.length} members in South Africa, Zimbabwe &amp; the UK · US${club.contributionAmount}/month
-            </p>
-          </div>
+          <LogoMark />
+          <span className="wordmark">rotapot</span>
         </div>
-        <div className="badges">
-          <span className={`badge ${state.paypalMode === "sandbox" ? "live" : "warn"}`}>
-            PayPal: {state.paypalMode === "sandbox" ? "sandbox" : "mock mode"}
+        <div className="club">
+          <h1>{club.name}</h1>
+          <p>
+            {club.members.length} members in Zimbabwe, South Africa and the UK · US${club.contributionAmount} each, every month · treasurer: {club.treasurerName}
+          </p>
+        </div>
+        <div className="env">
+          <span className={`env-pill ${state.paypalMode === "sandbox" ? "live" : ""}`}>
+            <i aria-hidden /> PayPal {state.paypalMode === "sandbox" ? "sandbox" : "mock mode"}
           </span>
-          <span className={`badge ${state.agentReady ? "live" : "warn"}`}>Claude agent: {state.agentReady ? "ready" : "no API key"}</span>
-          <button className="ghost" onClick={reset}>Reset demo</button>
+          <button className="link-btn" onClick={reset}>Reset demo</button>
         </div>
-      </div>
+      </header>
 
-      <div className="grid">
-        <section>
-          <div className="card">
+      <Rotation club={club} />
+
+      <div className="stage">
+        <section className="circle-col" aria-label={`Cycle ${cycle.number}`}>
+          <div className="col-head">
             <h2>Cycle {cycle.number} of {club.cycles.length}</h2>
-            <div className="pot">
-              <div>
-                <div className="big">
-                  US${collected.toFixed(0)} <small>/ US${target.toFixed(0)}</small>
+            <span className="muted">Due {new Date(`${cycle.dueDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</span>
+          </div>
+
+          <PotRing members={club.members} cycle={cycle} collected={collected} target={target} daysLate={late} justPaid={justPaid} />
+
+          <div className={`release ${awaiting ? "armed" : ""}`}>
+            {awaiting ? (
+              <>
+                <div className="release-copy">
+                  <span className="release-eyebrow">Waiting for your approval</span>
+                  <b>Release US${cycle.payout.amount} to {recipient.name}</b>
+                  <span className="release-why">{cycle.payout.proposedReason}</span>
+                  <span className="release-math">{club.members.length} × US${club.contributionAmount} received · paid out through PayPal Payouts</span>
                 </div>
-                <div className="meta">
-                  Due {cycle.dueDate}
-                  {late > 0 && paid < club.members.length ? ` · ${late} day${late === 1 ? "" : "s"} overdue` : ""}
-                </div>
+                <button className="release-btn" disabled={releasing} onClick={() => release(recipient, cycle.payout.amount)}>
+                  {releasing ? "Releasing…" : `Release US$${cycle.payout.amount}`}
+                </button>
+              </>
+            ) : sent ? (
+              <div className="release-copy">
+                <span className="release-eyebrow ok">Released</span>
+                <b>US${sent.amount} sent to {sent.recipient}</b>
+                <span className="release-math">PayPal batch {sent.batchId} · {sent.batchStatus.toLowerCase()} · the circle has turned to {firstName(recipient.name)}</span>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="meta">This month&apos;s payout goes to</div>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>{recipient.name}</div>
-                <div className="meta">{recipient.city}</div>
+            ) : (
+              <div className="release-copy">
+                <span className="release-eyebrow">Payout locked</span>
+                <span className="release-why">
+                  Unlocks when all {club.members.length} have paid. The agent proposes it; only you can release it.
+                </span>
               </div>
-            </div>
-            <div className="bar"><div style={{ width: `${Math.min(100, (collected / target) * 100)}%` }} /></div>
-            <div className="meta">{paid} of {club.members.length} members have paid</div>
+            )}
+            {releaseError && <p className="err">{releaseError}</p>}
           </div>
 
-          <div className="card">
-            <h2>Members</h2>
-            <table>
-              <thead>
-                <tr><th>Member</th><th>Language</th><th>Status</th><th></th></tr>
-              </thead>
-              <tbody>
-                {cycle.contributions.map((c) => {
-                  const m = member(c.memberId);
-                  return (
-                    <tr key={m.id}>
-                      <td className="who">
-                        <b>{m.name} {m.id === cycle.recipientId && <span className="turn">· THIS MONTH&apos;S TURN</span>}</b>
-                        <span>{m.city} · turn #{m.turn}</span>
-                      </td>
-                      <td className="meta">{m.language}</td>
-                      <td>
-                        <span className={`pill ${c.status}`}>
-                          {c.status === "paid" ? (c.source === "paypal" ? "Paid · PayPal" : "Paid") : c.status === "pending" ? "Checkout started" : late > 0 ? `${late}d late` : "Unpaid"}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {c.status !== "paid" && (
-                          <a className="secondary" href={`/pay/${m.id}`} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-                            Pay link ↗
-                          </a>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="card">
-            <h2>Payout</h2>
-            <div className="payout">
-              <div>
-                {cycle.payout.status === "awaiting_approval" ? (
-                  <>
-                    <b>Rotapot proposes sending US${cycle.payout.amount} to {recipient.name}.</b>
-                    <div className="meta">{cycle.payout.proposedReason}</div>
-                  </>
-                ) : cycle.payout.status === "sent" ? (
-                  <b>Sent ✓</b>
-                ) : (
-                  <span className="meta">The agent will propose the payout once everyone has paid. Money only moves when you approve it.</span>
-                )}
-              </div>
-              <button className="primary" disabled={cycle.payout.status !== "awaiting_approval" || approving} onClick={approve}>
-                {approving ? "Sending…" : "Approve payout"}
-              </button>
-            </div>
-            {notice && <p className="meta" style={{ marginBottom: 0 }}>{notice}</p>}
-          </div>
-        </section>
-
-        <section>
-          <div className="card chat">
-            <header>
-              <h2>Ask Rotapot</h2>
-              <p>Your treasurer agent. It reads the books, checks PayPal, writes reminders and proposes payouts. It can&apos;t send money without you.</p>
-            </header>
-            <div className="msgs" ref={msgsRef}>
-              {turns.length === 0 && <div className="empty">Try one of the suggestions below.</div>}
-              {turns.map((t, i) => (
-                <div key={i} className={`msg ${t.role}`}>
-                  {t.content}
-                  {t.actions && t.actions.length > 0 && (
-                    <div className="actions">
-                      {t.actions.map((a, j) => (
-                        <span key={j} className={`action ${a.ok ? "" : "err"}`}>{a.ok ? "✓" : "✗"} {a.summary}</span>
-                      ))}
+          <ul className="roster">
+            {[...cycle.contributions]
+              .sort((a, b) => member(a.memberId).turn - member(b.memberId).turn)
+              .map((c) => {
+                const m = member(c.memberId);
+                const country = COUNTRY[m.city];
+                return (
+                  <li key={m.id} className={c.status}>
+                    <Avatar member={m} size={32} />
+                    <div className="roster-who">
+                      <b>{m.name}</b>
+                      <span>{country?.flag} {m.city} · {m.language}</span>
                     </div>
-                  )}
-                </div>
-              ))}
-              {busy && <div className="thinking">Rotapot is working…</div>}
-            </div>
-            <div className="chips">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="chip" onClick={() => send(s)} disabled={busy}>{s}</button>
-              ))}
-            </div>
-            <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
-              <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about payments, reminders, payouts…" />
-              <button className="primary" disabled={busy || !input.trim()}>Send</button>
-            </form>
-          </div>
-
-          <div className="card">
-            <h2>WhatsApp outbox</h2>
-            <div className="outbox">
-              {club.outbox.length === 0 && <div className="empty">No reminders yet.</div>}
-              {[...club.outbox].reverse().map((n) => (
-                <div key={n.id} className="wa">
-                  <div className="to">To {member(n.memberId).name} · {n.language} · {fmtTime(n.createdAt)}</div>
-                  {n.message}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card">
-            <h2>Activity</h2>
-            <ul className="feed">
-              {[...club.activity].reverse().map((a, i) => (
-                <li key={i}><time>{fmtTime(a.at)}</time><span>{a.text}</span></li>
-              ))}
-            </ul>
-          </div>
+                    {c.status === "paid" ? (
+                      <span className="tag paid">{c.source === "paypal" ? "Paid via PayPal" : "Paid"}</span>
+                    ) : c.status === "pending" ? (
+                      <span className="tag pending">At checkout</span>
+                    ) : (
+                      <a className="tag late" href={`/pay/${m.id}`} target="_blank" rel="noreferrer" title="Open this member's pay page">
+                        {late > 0 ? `${late}d late` : "Unpaid"} · pay page ↗
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+          </ul>
         </section>
+
+        <div className="mid-col">
+          <AgentConsole members={club.members} ready={state.agentReady} onChange={refresh} />
+          <section className="ledger" aria-label="Ledger">
+            <div className="col-head"><h2>Ledger</h2></div>
+            <ol>
+              {[...club.activity].reverse().slice(0, 12).map((a, i) => (
+                <li key={`${a.at}-${i}`} className={`k-${a.kind}`}>
+                  <time>{stamp(a.at)}</time>
+                  <span>{a.text}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+
+        <Phone members={club.members} outbox={club.outbox} clubName={club.name} />
       </div>
     </main>
   );

@@ -38,7 +38,7 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
     loadSdk(clientId)
       .then((paypal) => {
         buttons = paypal.Buttons({
-          style: { layout: "vertical", shape: "pill", label: "pay" },
+          style: { layout: "vertical", shape: "pill", label: "pay", color: "gold" },
           createOrder: async () => {
             const res = await fetch("/api/paypal/orders", {
               method: "POST",
@@ -63,14 +63,13 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
     return () => buttons?.close?.();
   }, [clientId, memberId]);
 
-  if (done) return <div className="ok">Payment received via PayPal. Thank you! 🙏</div>;
+  if (done) return <div className="pay-ok"><b>Paid</b>Your US${amount} is in the pot. You can close this page.</div>;
 
   if (!clientId) {
     return (
       <>
         <button
-          className="primary"
-          style={{ width: "100%" }}
+          className="pay-mock"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -87,8 +86,8 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
         >
           Pay US${amount} (mock mode)
         </button>
-        <p className="meta">Add PayPal sandbox keys to .env.local to use real PayPal checkout.</p>
-        {error && <div className="error">{error}</div>}
+        <p className="pay-note">Demo mode: no real payment is taken.</p>
+        {error && <div className="pay-err">{error}</div>}
       </>
     );
   }
@@ -96,7 +95,7 @@ export default function PayButtons({ memberId, clientId, amount }: { memberId: s
   return (
     <>
       <div ref={ref} />
-      {error && <div className="error">{error}</div>}
+      {error && <div className="pay-err">{error}</div>}
     </>
   );
 }

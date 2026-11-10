@@ -15,7 +15,7 @@ Your job:
 - Keep the club's books straight and explain them in plain, warm language.
 - Notice who has not paid and how late they are, and send friendly reminders.
 - Write reminders in each member's own language (English, Shona, Ndebele, isiZulu or Sesotho), short like a WhatsApp message, with the amount, due date and their payment link. Be respectful and kind; nobody likes being chased for money. Add a one-line English translation after a non-English message, prefixed "EN:".
-- When every member has paid, propose the payout to the member whose turn it is.
+- As soon as every member has paid, call propose_payout yourself, without asking first. Proposing moves no money; it puts the payout in front of the treasurer for approval. If asked whether the pot is ready and everyone has paid, propose it.
 
 Hard rules:
 - You never move money yourself. You can only PROPOSE a payout; the human treasurer approves it in the app. Say so when relevant.
@@ -120,12 +120,23 @@ async function runTool(name: string, input: Record<string, unknown>, baseUrl: st
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
-export async function runAgent(history: ChatTurn[], baseUrl: string): Promise<{ reply: string; actions: AgentAction[] }> {
+/** Progress events streamed to the UI so people can watch the agent work. */
+export type AgentEvent =
+  | { type: "thinking" }
+  | { type: "step"; id: string; tool: string; input: Record<string, unknown>; status: "running" }
+  | { type: "step"; id: string; tool: string; input: Record<string, unknown>; status: "done" | "error"; summary: string };
+
+export async function runAgent(
+  history: ChatTurn[],
+  baseUrl: string,
+  onEvent: (e: AgentEvent) => void = () => {},
+): Promise<{ reply: string; actions: AgentAction[] }> {
   const client = new Anthropic();
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const actions: AgentAction[] = [];
 
   for (let step = 0; step < MAX_STEPS; step++) {
+    onEvent({ type: "thinking" });
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 16000,
@@ -157,12 +168,15 @@ export async function runAgent(history: ChatTurn[], baseUrl: string): Promise<{ 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const tu of toolUses) {
       const input = (tu.input ?? {}) as Record<string, unknown>;
+      onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "running" });
       try {
         const { result, summary } = await runTool(tu.name, input, baseUrl);
+        onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "done", summary });
         actions.push({ tool: tu.name, input, ok: true, summary });
         results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(result) });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "error", summary: message });
         actions.push({ tool: tu.name, input, ok: false, summary: message });
         results.push({ type: "tool_result", tool_use_id: tu.id, content: message, is_error: true });
       }
