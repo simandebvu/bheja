@@ -42,7 +42,7 @@ function SandboxBuyer({ buyer }: { buyer?: { email: string; password: string } |
         <>
           <p>Log in at PayPal with this sandbox buyer (fake money only):</p>
           <dl>
-            <dt>Email</dt><dd><code>{buyer.email}</code><button type="button" onClick={() => copy("email", buyer.email)}>{copied === "email" ? "Copied" : "Copy"}</button></dd>
+            <dt>Email</dt><dd><code>{buyer.email.split("@")[0]}@<wbr />{buyer.email.split("@").slice(1).join("@")}</code><button type="button" onClick={() => copy("email", buyer.email)}>{copied === "email" ? "Copied" : "Copy"}</button></dd>
             <dt>Password</dt><dd><code>{buyer.password}</code><button type="button" onClick={() => copy("password", buyer.password)}>{copied === "password" ? "Copied" : "Copy"}</button></dd>
           </dl>
         </>

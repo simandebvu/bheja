@@ -293,8 +293,8 @@ export default function CircleDashboard() {
                     ) : c.plan?.status === "pending" ? (
                       <span className="tag pending">Plan requested</span>
                     ) : (
-                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={state.payLinks[m.id]} target="_blank" rel="noreferrer">
-                        {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · Pay as {firstName(m.name)} ↗
+                      <a className={`tag ${late > 0 ? "late" : "due"}`} href={state.payLinks[m.id]} target="_blank" rel="noreferrer" aria-label={`${late > 0 ? `${late} days late` : `Due ${dayMonth(cycle.dueDate)}`}. Open ${firstName(m.name)}'s pay page`}>
+                        {late > 0 ? `${late}d late` : `Due ${dayMonth(cycle.dueDate)}`} · Pay ↗
                       </a>
                     )}
                   </li>

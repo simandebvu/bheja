@@ -106,7 +106,7 @@ export default function Phone({
   return (
     <section className="phone-col" aria-label="What members see">
       <div className="col-head">
-        <h2 title="A preview of each member's messages. WhatsApp delivery isn't connected in this prototype; messages stay in the circle inbox.">On their phones · preview</h2>
+        <h2 title="A preview of each member's messages. WhatsApp delivery isn't connected in this prototype; messages stay in the circle inbox.">On their phones</h2>
         <label className="toggle">
           <input type="checkbox" checked={showEn} onChange={(e) => setShowEn(e.target.checked)} /> Show English
         </label>
@@ -120,6 +120,7 @@ export default function Phone({
           ))}
         </div>
       )}
+      <p className="phone-caption">Preview of the circle inbox · WhatsApp isn&apos;t connected yet</p>
       <div className="phone">
         <div className="phone-notch" aria-hidden />
         <div className="wa-head">
@@ -132,9 +133,7 @@ export default function Phone({
         <div className="wa-body" ref={bodyRef}>
           {thread.length === 0 && !busy ? (
             <div className="wa-empty">
-              <p>Reminders, receipts and payout notices arrive here, in each member&apos;s own language. Members can reply, and the agent answers.</p>
-              <p className="wa-empty-note">Preview of the circle inbox. WhatsApp delivery isn&apos;t connected yet.</p>
-            </div>
+              <p>Reminders, receipts and payout notices arrive here, in each member&apos;s own language. Members can reply, and the agent answers.</p>            </div>
           ) : (
             thread.map((n) => {
               const mine = n.direction === "in";

@@ -205,7 +205,7 @@ a.tag.late:hover { background: var(--coral); color: #fff; }
 .wa-link { color: #0b6bcb; }
 a.wa-card { color: inherit; text-decoration: none; cursor: pointer; transition: background .15s; }
 a.wa-card:hover { background: #e8ecf0; }
-.wa-empty-note { margin-top: 8px; font-size: 11px; opacity: .75; }
+.phone-caption { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
 .wa-card { display: flex; flex-direction: column; gap: 1px; margin-top: 7px; border-radius: 8px; background: #f3f5f7; border-left: 3px solid var(--indigo); padding: 7px 9px; white-space: normal; }
 .wa-card-label { font-weight: 700; font-size: 12.5px; }
 .wa-card-host { font-size: 11px; color: var(--muted); }
@@ -242,10 +242,10 @@ a.wa-card:hover { background: #e8ecf0; }
 .pay-test summary { cursor: pointer; color: var(--indigo); font-weight: 600; padding: 4px 0; }
 .pay-test p { margin: 8px 0; line-height: 1.5; }
 .pay-test a { color: var(--indigo); }
-.pay-test dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; margin: 0; }
-.pay-test dt { font-weight: 600; color: var(--ink); }
+.pay-test dl { display: grid; grid-template-columns: 1fr; gap: 4px; margin: 0; }
+.pay-test dt { font-weight: 600; color: var(--ink); margin-top: 6px; }
 .pay-test dd { margin: 0; display: flex; gap: 8px; align-items: center; min-width: 0; }
-.pay-test code { overflow-wrap: anywhere; font-size: 12px; background: var(--paper); padding: 2px 6px; border-radius: 6px; }
+.pay-test code { flex: 1; min-width: 0; font-size: 12px; background: var(--paper); padding: 2px 6px; border-radius: 6px; }
 .pay-test dd button { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--indigo); }
 .pay-ok { text-align: center; padding: 16px; border-radius: 16px; background: var(--jade-wash); color: var(--jade); font-weight: 600; animation: rise 0.4s ease-out; }
 .pay-ok b { display: block; font-family: var(--display); font-size: 20px; margin-bottom: 4px; }
