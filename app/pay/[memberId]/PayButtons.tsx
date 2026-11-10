@@ -1,0 +1,102 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type PayPalButtonsInstance = { render: (el: HTMLElement) => Promise<void>; close?: () => void };
+type PayPalNamespace = {
+  Buttons: (opts: {
+    style?: Record<string, string>;
+    createOrder: () => Promise<string>;
+    onApprove: (data: { orderID: string }) => Promise<void>;
+    onError: (err: unknown) => void;
+  }) => PayPalButtonsInstance;
+};
+declare global {
+  interface Window { paypal?: PayPalNamespace }
+}
+
+function loadSdk(clientId: string): Promise<PayPalNamespace> {
+  if (window.paypal) return Promise.resolve(window.paypal);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture`;
+    s.onload = () => (window.paypal ? resolve(window.paypal) : reject(new Error("PayPal SDK failed to load")));
+    s.onerror = () => reject(new Error("PayPal SDK failed to load"));
+    document.head.appendChild(s);
+  });
+}
+
+export default function PayButtons({ memberId, clientId, amount }: { memberId: string; clientId: string | null; amount: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!clientId || !ref.current) return;
+    let buttons: PayPalButtonsInstance | undefined;
+    loadSdk(clientId)
+      .then((paypal) => {
+        buttons = paypal.Buttons({
+          style: { layout: "vertical", shape: "pill", label: "pay" },
+          createOrder: async () => {
+            const res = await fetch("/api/paypal/orders", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ memberId }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            return data.orderId as string;
+          },
+          onApprove: async ({ orderID }) => {
+            const res = await fetch(`/api/paypal/orders/${orderID}/capture`, { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setDone(true);
+          },
+          onError: (err) => setError(err instanceof Error ? err.message : String(err)),
+        });
+        if (ref.current) return buttons.render(ref.current);
+      })
+      .catch((e: Error) => setError(e.message));
+    return () => buttons?.close?.();
+  }, [clientId, memberId]);
+
+  if (done) return <div className="ok">Payment received via PayPal. Thank you! 🙏</div>;
+
+  if (!clientId) {
+    return (
+      <>
+        <button
+          className="primary"
+          style={{ width: "100%" }}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const res = await fetch("/api/mock-pay", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ memberId }),
+            });
+            const data = await res.json();
+            if (res.ok) setDone(true);
+            else setError(data.error);
+            setBusy(false);
+          }}
+        >
+          Pay US${amount} (mock mode)
+        </button>
+        <p className="meta">Add PayPal sandbox keys to .env.local to use real PayPal checkout.</p>
+        {error && <div className="error">{error}</div>}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div ref={ref} />
+      {error && <div className="error">{error}</div>}
+    </>
+  );
+}
