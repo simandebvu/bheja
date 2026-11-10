@@ -140,6 +140,10 @@ WantedBy=timers.target
 
 Then `sudo systemctl daemon-reload && sudo systemctl enable --now rotapot-briefing.timer`. Test with `sudo systemctl start rotapot-briefing.service`.
 
+### Optional: PayPal webhooks
+
+To book payments even when a member closes the tab, add a webhook in your PayPal sandbox app pointing at `https://rotapot.simakk.co.za/api/paypal/webhook` with events `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED`, and put its Webhook ID in `PAYPAL_WEBHOOK_ID`. See [the architecture notes](docs/ARCHITECTURE.md#paypal-webhooks-optional).
+
 ## How the pieces fit
 
 ![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)
