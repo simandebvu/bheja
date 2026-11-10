@@ -4,12 +4,13 @@ import { accountContext } from "./account-context";
 import { BRIEFING_PROMPT, runAgent } from "./agent";
 import { getAuth } from "./auth";
 import { loadDb, updateDb } from "./db";
+import type { BriefingNote } from "./types";
 
 export type CronAccount = { id: string; name: string; email?: string };
-export type BriefingRunner = (origin: string) => Promise<{ reply: string; actions: { tool: string; input: Record<string, unknown>; ok: boolean; summary: string }[] }>;
+export type BriefingRunner = (origin: string) => Promise<{ reply: string; actions: { tool: string; input: Record<string, unknown>; ok: boolean; summary: string }[]; notes?: BriefingNote[] }>;
 export type Summary = { ran: number; skipped: number; failed: number };
 
-const defaultRunner: BriefingRunner = (origin) => runAgent([{ role: "user", content: BRIEFING_PROMPT }], origin);
+const defaultRunner: BriefingRunner = (origin) => runAgent([{ role: "user", content: BRIEFING_PROMPT }], origin, undefined, { briefing: true });
 
 function positive(value: string | undefined, fallback: number) {
   const n = Number(value);
@@ -57,7 +58,7 @@ export async function runScheduledBriefings(opts: {
         const last = db.briefing ? Date.parse(db.briefing.at) : NaN;
         if (Number.isFinite(last) && now.getTime() - last < minMs) { summary.skipped++; return; }
         const result = await runner(opts.origin);
-        updateDb((d) => { d.briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions, source: "scheduled" }; });
+        updateDb((d) => { d.briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions, source: "scheduled", ...(result.notes ? { notes: result.notes } : {}) }; });
         summary.ran++;
       });
     } catch (err) {

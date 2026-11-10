@@ -119,10 +119,22 @@ export interface BriefingStep {
   summary: string;
 }
 
+/** The agent's per-circle note. Live numbers come from the circle itself, never from here. */
+export interface BriefingNote {
+  clubId: string;
+  urgency: "needs_you" | "handled" | "nothing";
+  /** What the agent did this run, in one sentence. Empty if nothing. */
+  did: string;
+  /** What happens next, or what the treasurer should do, in one sentence. */
+  next: string;
+}
+
 export interface Briefing {
   at: string;
   reply: string;
   steps: BriefingStep[];
+  /** Structured per-circle notes; absent on older briefings or if the agent didn't submit them. */
+  notes?: BriefingNote[];
   /** "scheduled" when the timer ran it unattended; absent on older data. */
   source?: "manual" | "scheduled";
 }

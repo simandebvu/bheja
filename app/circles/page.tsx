@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Briefing, Club } from "@/lib/types";
+import type { Briefing, BriefingNote, Club } from "@/lib/types";
+import BriefingCards, { changesSince } from "../components/BriefingCards";
 import { streamAgent, Trace, upsertStep, type Step } from "../components/agentClient";
 import MiniRing from "../components/MiniRing";
 import ConnectAgent from "../components/ConnectAgent";
@@ -44,6 +45,7 @@ export default function Circles() {
   const [data, setData] = useState<Data | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [reply, setReply] = useState<string | null>(null);
+  const [notes, setNotes] = useState<BriefingNote[] | null>(null);
   const [briefedAt, setBriefedAt] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState(false);
   const [running, setRunning] = useState(false);
@@ -80,13 +82,19 @@ export default function Circles() {
     setRunning(true);
     setSteps([]);
     setReply(null);
+    setNotes(null);
     setError(null);
     await streamAgent("/api/briefing", {}, {
       step: (s) => {
         setSteps((prev) => upsertStep(prev, s));
         if (s.status !== "running") load();
       },
-      reply: (r) => { setReply(r); setBriefedAt(new Date().toISOString()); setScheduled(false); },
+      reply: (r, ev) => {
+        setReply(r);
+        setNotes(Array.isArray(ev.notes) && ev.notes.length ? (ev.notes as BriefingNote[]) : null);
+        setBriefedAt(typeof ev.at === "string" ? ev.at : new Date().toISOString());
+        setScheduled(false);
+      },
       error: (m) => setError(m),
     });
     setRunning(false);
@@ -97,6 +105,7 @@ export default function Circles() {
     onFirstLoad.current = (d: Data) => {
       if (d.briefing) {
         setReply(d.briefing.reply);
+        setNotes(d.briefing.notes?.length ? d.briefing.notes : null);
         setBriefedAt(d.briefing.at);
         setScheduled(d.briefing.source === "scheduled");
         setSteps(d.briefing.steps.map((s, i) => ({ id: `saved-${i}`, tool: s.tool, input: s.input, status: s.ok ? "done" : "error", summary: s.summary })));
@@ -119,7 +128,7 @@ export default function Circles() {
     try {
       const response = await fetch("/api/clubs/demo", { method: "POST" });
       if (!response.ok) throw new Error("Could not load sample circles.");
-      setSteps([]); setReply(null); setBriefedAt(null);
+      setSteps([]); setReply(null); setNotes(null); setBriefedAt(null);
       await load();
       // The briefing starts at the top of the page; take people to it instead of leaving them at the button.
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -140,6 +149,8 @@ export default function Circles() {
   const monthly = clubs.reduce((sum, c) => sum + c.members.length * Number(c.contributionAmount), 0);
   const attention = clubs.map((c) => ({ club: c, s: circleState(c) })).filter((x) => x.s.tone !== "calm");
   const record = ledgerTotals(clubs);
+  // For older text-only briefings: say what moved since, so stale numbers don't mislead.
+  const sinceAll = briefedAt ? clubs.flatMap((c) => { const ch = changesSince(c, briefedAt); return ch.length ? [`${c.name}: ${ch.join(", ")}`] : []; }) : [];
   const earliest = clubs.flatMap((c) => c.members.map((m) => m.history?.since ?? m.joinedAt?.slice(0, 7) ?? clubFallbackDate())).sort()[0];
 
   return (
@@ -193,8 +204,15 @@ export default function Circles() {
           </div>
           <div className="briefing-reply">
             {error && <p className="err" role="alert">{error}</p>}
-            {reply ? <Markdown text={reply} /> : !error && <p className="muted">The agent reads every circle, sends reminders the rules allow, and puts ready payouts in front of you. Nothing moves money without your tap.</p>}
-            {attention.length > 0 && !running && (
+            {notes && briefedAt && !running ? (
+              <BriefingCards notes={notes} clubs={clubs} at={briefedAt} />
+            ) : reply ? (
+              <>
+                <Markdown text={reply} />
+                {briefedAt && !running && sinceAll.length > 0 && <p className="brief-since">Since this briefing: {sinceAll.join("; ")}.</p>}
+              </>
+            ) : !error && <p className="muted">The agent reads every circle, sends reminders the rules allow, and puts ready payouts in front of you. Nothing moves money without your tap.</p>}
+            {!notes && attention.length > 0 && !running && (
               <div className="needs">
                 {attention.map(({ club, s }) => (
                   <Link key={club.id} href={`/circles/${club.id}`} className={`needs-item ${s.tone}`}>

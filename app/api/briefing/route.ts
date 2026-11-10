@@ -18,10 +18,10 @@ async function handlePOST(req: Request) {
   if (!agentConfigured()) return fail("The agent needs an API key. Add ANTHROPIC_API_KEY and restart.", 503);
   const origin = baseUrl(req);
   return agentStream(async (send) => {
-    const result = await runAgent([{ role: "user", content: BRIEFING_PROMPT }], origin, send);
-    const briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions, source: "manual" as const };
+    const result = await runAgent([{ role: "user", content: BRIEFING_PROMPT }], origin, send, { briefing: true });
+    const briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions, source: "manual" as const, ...(result.notes ? { notes: result.notes } : {}) };
     updateDb((db) => { db.briefing = briefing; });
-    return { reply: result.reply, actions: result.actions, at: briefing.at };
+    return { reply: result.reply, actions: result.actions, at: briefing.at, notes: result.notes ?? null };
   });
 }
 

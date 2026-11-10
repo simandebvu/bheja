@@ -13,7 +13,7 @@ import {
 } from "./club";
 import { loadClub, loadDb } from "./db";
 import { loadPayPalTools } from "./paypal-agent-tools";
-import { LANGUAGES, type Language } from "./types";
+import { LANGUAGES, type BriefingNote, type Language } from "./types";
 
 // Point ANTHROPIC_BASE_URL at an Anthropic-compatible gateway (e.g. a LiteLLM
 // proxy) to route through it; the SDK reads that variable automatically.
@@ -227,7 +227,59 @@ export type AgentEvent =
   | { type: "step"; id: string; tool: string; input: Record<string, unknown>; status: "done" | "error"; summary: string };
 
 export const BRIEFING_PROMPT =
-  "Good morning. Go through all my circles. Following each circle's own rules, send any reminders that are due and propose any payouts that are ready. Then brief me in at most 4 short bullets, most urgent first: what you did, and what needs me.";
+  "Good morning. Go through all my circles. Following each circle's own rules, send any reminders that are due and propose any payouts that are ready. Then brief me by calling submit_briefing once, with one note per circle. Use members' first names. Don't repeat counts or amounts the screen already shows; say what you did, why, and what happens next.";
+
+/** Only offered on briefing runs: the agent's structured hand-off, which ends the run. */
+const SUBMIT_BRIEFING_TOOL: Anthropic.Tool = {
+  name: "submit_briefing",
+  description: "Finish the briefing: one short note per circle you looked at. Call this once, last.",
+  input_schema: {
+    type: "object",
+    properties: {
+      notes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            club_id: { type: "string" },
+            urgency: {
+              type: "string",
+              enum: ["needs_you", "handled", "nothing"],
+              description: "needs_you: the treasurer must act (approve a payout or plan, or step in). handled: you acted and nothing is needed from them yet. nothing: no action due.",
+            },
+            did: { type: "string", description: "What you did this run, in at most 15 words, naming members by first name. Empty string if nothing." },
+            next: { type: "string", description: "What happens next or what the treasurer should do, in at most 15 words, with a date if there is one. Don't restate that only the treasurer can release money; the screen says it." },
+          },
+          required: ["club_id", "urgency", "did", "next"],
+        },
+      },
+    },
+    required: ["notes"],
+  },
+};
+
+/** Keep only well-formed notes for circles this account actually has. */
+export function cleanBriefingNotes(raw: unknown, clubIds: Set<string>): BriefingNote[] {
+  const list = Array.isArray((raw as { notes?: unknown })?.notes) ? (raw as { notes: unknown[] }).notes : [];
+  const urgencies = new Set(["needs_you", "handled", "nothing"]);
+  const text = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 280) : "");
+  const seen = new Set<string>();
+  const notes: BriefingNote[] = [];
+  for (const item of list) {
+    const n = (item ?? {}) as Record<string, unknown>;
+    const clubId = text(n.club_id);
+    if (!clubIds.has(clubId) || seen.has(clubId)) continue;
+    seen.add(clubId);
+    notes.push({ clubId, urgency: urgencies.has(String(n.urgency)) ? (n.urgency as BriefingNote["urgency"]) : "nothing", did: text(n.did), next: text(n.next) });
+  }
+  return notes;
+}
+
+/** Plain-text version of the notes, for the MCP/chat history and older screens. */
+function notesToReply(notes: BriefingNote[]): string {
+  const label = { needs_you: "Needs you", handled: "Handled", nothing: "Nothing yet" } as const;
+  return notes.map((n) => `- **${loadClub(n.clubId).name}** (${label[n.urgency]}): ${[n.did, n.next].filter(Boolean).join(" ")}`).join("\n");
+}
 
 /** A member's WhatsApp message, handled by the agent end to end. */
 export function memberMessagePrompt(o: { name: string; language: string; club: string; text: string; today: string }) {
@@ -238,8 +290,8 @@ export async function runAgent(
   history: ChatTurn[],
   baseUrl: string,
   onEvent: (e: AgentEvent) => void = () => {},
-  context: { clubId?: string } = {},
-): Promise<{ reply: string; actions: AgentAction[] }> {
+  context: { clubId?: string; briefing?: boolean } = {},
+): Promise<{ reply: string; actions: AgentAction[]; notes?: BriefingNote[] }> {
   const client = new Anthropic({ timeout: 90_000, maxRetries: 1 });
   const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const actions: AgentAction[] = [];
@@ -249,7 +301,7 @@ export async function runAgent(
     if (last?.role === "user" && last.content === BRIEFING_PROMPT) last.content = BRIEFING_PROMPT + BRIEFING_PAYPAL_NOTE;
   }
   const baseSystem = pp ? `${SYSTEM}\n\n${PAYPAL_TOOLKIT_SYSTEM}` : SYSTEM;
-  const allTools = [...agentTools(), ...(pp?.tools ?? [])];
+  const allTools = [...agentTools(), ...(pp?.tools ?? []), ...(context.briefing ? [SUBMIT_BRIEFING_TOOL] : [])];
   const system = context.clubId
     ? `${baseSystem}\n\nthe treasurer is currently looking at the circle "${loadClub(context.clubId).name}" (club_id ${context.clubId}). Assume questions are about it unless they say otherwise.`
     : baseSystem;
@@ -283,8 +335,12 @@ export async function runAgent(
       return { reply: reply || "Done.", actions };
     }
 
+    // The briefing hand-off ends the run. Run any other tools in the same turn first.
+    const handoff = context.briefing ? toolUses.find((tu) => tu.name === SUBMIT_BRIEFING_TOOL.name) : undefined;
+
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const tu of toolUses) {
+      if (tu === handoff) continue;
       const input = (tu.input ?? {}) as Record<string, unknown>;
       onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "running" });
       try {
@@ -307,6 +363,15 @@ export async function runAgent(
         actions.push({ tool: tu.name, input, ok: false, summary: message });
         results.push({ type: "tool_result", tool_use_id: tu.id, content: message, is_error: true });
       }
+    }
+    if (handoff) {
+      const notes = cleanBriefingNotes(handoff.input, new Set(loadDb().clubs.filter((c) => c.status !== "draft").map((c) => c.id)));
+      const input = { circles: notes.length };
+      onEvent({ type: "step", id: handoff.id, tool: handoff.name, input, status: "running" });
+      onEvent({ type: "step", id: handoff.id, tool: handoff.name, input, status: "done", summary: `Briefed you on ${notes.length} circles` });
+      if (notes.length) return { reply: notesToReply(notes), actions, notes };
+      // Malformed hand-off: fall through and ask for a plain summary instead.
+      results.push({ type: "tool_result", tool_use_id: handoff.id, content: "No valid notes. Reply with a short plain-text briefing instead.", is_error: true });
     }
     messages.push({ role: "user", content: results });
   }

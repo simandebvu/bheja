@@ -15,7 +15,7 @@ export type Step = {
 export async function streamAgent(
   url: string,
   body: unknown,
-  on: { step: (s: Step) => void; reply: (text: string) => void; error: (msg: string) => void },
+  on: { step: (s: Step) => void; reply: (text: string, event: Record<string, unknown>) => void; error: (msg: string) => void },
 ) {
   try {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -38,7 +38,7 @@ export async function streamAgent(
         if (!line) continue;
         const ev = JSON.parse(line);
         if (ev.type === "step") on.step({ id: ev.id, tool: ev.tool, input: ev.input, status: ev.status, summary: ev.summary });
-        else if (ev.type === "reply") on.reply(ev.reply);
+        else if (ev.type === "reply") on.reply(ev.reply, ev);
         else if (ev.type === "error") on.error(ev.message);
       }
     }
@@ -62,6 +62,7 @@ export function describeStep(step: Step, clubs: Club[]): { label: string; call: 
   const i = step.input;
   switch (step.tool) {
     case "list_circles": return { label: "Looking across all your circles", call: "list_circles()" };
+    case "submit_briefing": return { label: "Writing up your briefing", call: `submit_briefing(${String(i.circles ?? "")} circles)` };
     case "get_circle": return { label: `Reading ${circle}'s books`, call: `get_circle(${i.club_id})` };
     case "verify_payment": return { label: `Checking PayPal for ${who(i.member_id)}'s payment`, call: `verify_payment(${i.member_id})` };
     case "send_reminder": return { label: `Writing to ${who(i.member_id)} in ${String(i.language)}`, call: `send_reminder(${i.member_id}, ${LANG_CODE[String(i.language)] ?? i.language})` };
