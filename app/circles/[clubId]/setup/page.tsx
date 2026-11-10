@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Club } from "@/lib/types";
 import CirclePreview from "@/app/components/CirclePreview";
 import { LogoMark, longDate } from "@/app/components/ui";
@@ -12,6 +12,7 @@ export default function SetupCircle() {
   const [data, setData] = useState<Data | null>(null), [error, setError] = useState("");
   const [busy, setBusy] = useState(""), [notice, setNotice] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const misses = useRef(0);
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
@@ -19,8 +20,14 @@ export default function SetupCircle() {
       if (res.status === 404) throw new Error("This circle is no longer available.");
       if (!res.ok) throw new Error("Couldn't refresh your circle. Try again.");
       setData(await res.json());
+      misses.current = 0;
       setError((prev) => (prev === "Couldn't refresh your circle. Try again." ? "" : prev));
-    } catch (err) { setError(err instanceof Error ? err.message : "Couldn't refresh your circle. Try again."); }
+    } catch (err) {
+      const gone = err instanceof Error && err.message === "This circle is no longer available.";
+      misses.current += 1;
+      // A single dropped poll isn't worth alarming anyone; keep retrying quietly.
+      if (gone || misses.current >= 3) setError(gone ? err.message : "Couldn't refresh your circle. Try again.");
+    }
   }, [clubId]);
   useEffect(() => { void refresh(); const timer = setInterval(refresh, 5000); return () => clearInterval(timer); }, [refresh]);
   async function action(action: string, memberId?: string) {

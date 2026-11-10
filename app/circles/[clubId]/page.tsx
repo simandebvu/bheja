@@ -43,11 +43,14 @@ export default function CircleDashboard() {
 
   const refresh = useCallback(async () => {
     if (frozen.current) return;
-    const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
-    if (res.status === 401) { window.location.assign("/"); return; }
-    if (res.status === 404) return setMissing(true);
-    if (!res.ok) return;
-    const next: State = await res.json();
+    let next: State;
+    try {
+      const res = await fetch(`/api/clubs/${clubId}`, { cache: "no-store" });
+      if (res.status === 401) { window.location.assign("/"); return; }
+      if (res.status === 404) return setMissing(true);
+      if (!res.ok) return;
+      next = await res.json();
+    } catch { return; /* transient network blip: the next poll catches up */ }
     if (next.club.status === "draft") { window.location.replace(`/circles/${clubId}/setup`); return; }
     const cycle = next.club.cycles.find((c) => c.number === next.club.currentCycle)!;
     const paidNow = new Set(cycle.contributions.filter((c) => c.status === "paid").map((c) => `${cycle.number}:${c.memberId}`));
@@ -64,10 +67,12 @@ export default function CircleDashboard() {
   }, [clubId]);
 
   useEffect(() => {
-    fetch("/api/clubs", { cache: "no-store" }).then((r) => r.json()).then((d) => setClubs((d.clubs ?? []).filter((c: Club) => c.status !== "draft")));
+    fetch("/api/clubs", { cache: "no-store" }).then((r) => r.json()).then((d) => setClubs((d.clubs ?? []).filter((c: Club) => c.status !== "draft"))).catch(() => { /* the circle itself still loads */ });
     refresh();
-    const t = setInterval(refresh, 2500);
-    return () => clearInterval(t);
+    const t = setInterval(() => { if (!document.hidden) void refresh(); }, 2500);
+    const onVisible = () => { if (!document.hidden) void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
   }, [refresh]);
 
   async function release() {

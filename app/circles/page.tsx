@@ -54,14 +54,26 @@ export default function Circles() {
   const started = useRef(false);
   const [sampleBusy, setSampleBusy] = useState(false);
 
+  // Background polls fail for ordinary reasons (laptop wakes, Wi-Fi switches, a deploy restarts
+  // the server). Stay quiet for a few misses and keep retrying; only then say we're reconnecting.
+  const failures = useRef(0);
+  // Runs once, on whichever request succeeds first (the first one may fail during a restart).
+  const initialised = useRef(false);
+  const onFirstLoad = useRef<(d: Data) => void>(() => {});
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/clubs", { cache: "no-store" });
       if (res.status === 401) { window.location.assign("/"); return; }
-      if (!res.ok) throw new Error("Couldn't load your circles. Please try again.");
-      setData(await res.json());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const next: Data = await res.json();
+      failures.current = 0;
+      setData(next);
       setLoadError(null);
-    } catch { setLoadError("Couldn't load your circles. Check your connection and try again."); }
+      if (!initialised.current) { initialised.current = true; onFirstLoad.current(next); }
+    } catch {
+      failures.current += 1;
+      if (failures.current >= 3) setLoadError("Can't reach Rotapot right now. Retrying automatically…");
+    }
   }, []);
 
   const runBriefing = useCallback(async () => {
@@ -82,12 +94,7 @@ export default function Circles() {
   }, [load]);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/clubs", { cache: "no-store" });
-      if (res.status === 401) { window.location.assign("/"); return; }
-      if (!res.ok) { setLoadError("Couldn’t load your circles. Please try again."); return; }
-      const d: Data = await res.json();
-      setData(d);
+    onFirstLoad.current = (d: Data) => {
       if (d.briefing) {
         setReply(d.briefing.reply);
         setBriefedAt(d.briefing.at);
@@ -97,9 +104,14 @@ export default function Circles() {
         started.current = true;
         runBriefing();
       }
-    })().catch(() => setLoadError("Couldn’t load your circles. Check your connection and try again."));
-    const t = setInterval(load, 4000);
-    return () => clearInterval(t);
+    };
+    void load();
+    // Poll only while the tab is visible, and catch up as soon as it comes back.
+    const t = setInterval(() => { if (!document.hidden) void load(); }, 4000);
+    const onVisible = () => { if (!document.hidden) void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("online", onVisible); };
   }, [load, runBriefing]);
 
   async function reset() {
@@ -157,7 +169,7 @@ export default function Circles() {
         </div>
       </header>
 
-      {loadError && <p className="err" role="alert">{loadError}</p>}
+      {loadError && <p className="reconnecting" role="status">{loadError}</p>}
       {error && !clubs.length && <p className="err" role="alert">{error}</p>}
       {isEmpty && <section className="first-circle"><div><span className="eyebrow">Every circle starts with one person</span><h2>Yours starts here.</h2><p>Your people already have the trust. Give it a name, a monthly promise, and a place to grow.</p><div className="first-circle-actions"><button className="primary-action" disabled={sampleBusy} onClick={() => void reset()}>{sampleBusy ? "Opening the samples…" : "See it working: open 3 sample circles →"}</button><Link className="secondary-action" href="/circles/new">Start my own circle</Link></div><span className="field-help">Samples show late payers, a ready payout and the AI treasurer at work. Your own circle takes about three minutes and needs at least one other person.</span></div><div className="empty-circle-art" aria-hidden><span>You</span><i>＋</i><i>＋</i><i>＋</i><b>A little each.<br />A lot together.</b></div></section>}
       {drafts.length > 0 && <section className="draft-section"><div className="section-heading"><h2>Good things are gathering.</h2><span>Circles you're setting up</span></div><div className="draft-grid">{drafts.map((club) => <Link className="draft-card" key={club.id} href={`/circles/${club.id}/setup`}><span className="eyebrow">{club.kind} · gathering</span><h3>{club.name}</h3><p>{club.purpose}</p><div className="draft-chairs">{club.members.map((m) => <span key={m.id} className={m.joinedAt ? "joined" : ""} title={m.name}>{m.joinedAt ? "✓" : m.name[0]}</span>)}</div><footer><span>{club.members.filter((m) => m.joinedAt).length} / {club.members.length} chairs confirmed</span><b>Keep gathering →</b></footer></Link>)}</div></section>}
