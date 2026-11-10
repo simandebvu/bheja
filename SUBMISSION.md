@@ -97,7 +97,7 @@ nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal
 ## Notes for judges
 - The demo uses PayPal **sandbox**; no real money moves.
 - **Sign up with any email address you can open.** Verification is a real email, and sign-up takes under a minute. There's no shared demo account, so your circles are private to you.
-- **Paying as a member:** log in with a PayPal **sandbox** personal account (`SANDBOX_BUYER_EMAIL` / `SANDBOX_BUYER_PASSWORD`, fake money only), or pay as a guest by card with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
+- **Paying as a member:** log in with a PayPal **sandbox** personal account (`sb-bk2d453834129@personal.example.com` / `5">yL-??`, fake money only), or pay as a guest by card with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
 - Fastest path: sign in, choose **Explore sample circles**, watch the briefing, open a circle, pay as a member from the pay link, then release the payout. For the full invitation journey, use two email addresses.
 - To try the MCP server, create a key under **Connect an agent** and use the config snippet shown there. The README also has a curl example.
 - Historical payment records in the sample circles are seeded. Messages stay in the in-app outbox; they are not delivered through WhatsApp.

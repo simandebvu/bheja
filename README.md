@@ -105,6 +105,8 @@ Signed member payment links work without login, expire after 30 days, and only a
 7. **Launch together.** Once every member has joined, launch to generate monthly contribution cycles and open member checkout. The dates clamp to the last day in shorter months. Editing before launch renews invitations and requires everyone to accept again; launching locks the people, terms and rotation.
 8. **Collect and release.** Members contribute from their personal page. A full pot becomes ready for the treasurer’s approval even without an AI call. Release advances the rotation; actual new-member contributions build the trust passport.
 
+**Judges:** sign up with any email you can open (verification is real; there is no shared account). To pay as a member, log in at PayPal checkout with the sandbox personal account `sb-bk2d453834129@personal.example.com` / `5">yL-??` (fake money only), or pay as a guest with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
+
 For a quick judge walkthrough with one inbox, use **Explore sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
 
 ## Scheduled treasurer
