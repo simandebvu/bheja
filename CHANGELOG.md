@@ -21,6 +21,10 @@ First tagged sandbox prototype, prepared for the PayPal AI Hackathon.
 - Dashboard payout transitions preserve the filled-pot animation.
 - Agent streaming tolerates a viewer disconnect while the server process remains alive.
 
+### Dependency maintenance
+
+- Override transitive PostCSS to 8.5.23, resolving four reported advisories.
+
 ### Known limits
 
 Sandbox only; demo authentication; JSON-file storage; seeded history; in-app messages instead of real WhatsApp. See [architecture](docs/ARCHITECTURE.md) for the boundary between the prototype and a production service.

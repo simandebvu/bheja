@@ -1,0 +1,11 @@
+flowchart LR
+    T["Treasurer dashboard"] --> A["Next.js API routes"]
+    M["Member checkout / conversation"] --> A
+    A --> C["Claude tool loop"]
+    C --> D["Domain checks + JSON store"]
+    C --> V["Verify an approved contribution"]
+    V --> O["PayPal Orders v2"]
+    A --> O
+    T --> R["Treasurer Release action"]
+    R --> P["PayPal Payouts v1"]
+    D --> W["In-app message outbox"]

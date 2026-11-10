@@ -7,8 +7,8 @@
   <a href="https://github.com/simandebvu/rotapot/releases">Releases</a>
 </p>
 <p align="center">
-  <a href="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml"><img src="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml/badge.svg" alt="Verify"></a>
-  <a href="https://github.com/simandebvu/rotapot/releases"><img src="https://img.shields.io/github/v/release/simandebvu/rotapot?color=24307a" alt="Latest release"></a>
+  <a href="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml"><img src="https://github.com/simandebvu/rotapot/actions/workflows/verify.yml/badge.svg?branch=main" alt="Verify"></a>
+  <a href="https://github.com/simandebvu/rotapot/releases"><img src="https://img.shields.io/badge/release-v0.1.0-24307a" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0e8a63" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/payments-PayPal%20sandbox-f4b400" alt="PayPal sandbox">
 </p>
@@ -80,19 +80,7 @@ npm start
 
 ## How the pieces fit
 
-```mermaid
-flowchart LR
-    T["Treasurer dashboard"] --> A["Next.js API routes"]
-    M["Member checkout / conversation"] --> A
-    A --> C["Claude tool loop"]
-    C --> D["Domain checks + JSON store"]
-    C --> V["Verify an approved contribution"]
-    V --> O["PayPal Orders v2"]
-    A --> O
-    T --> R["Treasurer Release action"]
-    R --> P["PayPal Payouts v1"]
-    D --> W["In-app message outbox"]
-```
+![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)
 
 The agent has **nine tools**, including payment verification, reminder delivery to the outbox, payment-plan proposals and payout proposals. It has **no payout-release tool**. Verification can capture a contribution the member already approved. Read the [architecture and authority boundaries](docs/ARCHITECTURE.md).
 
