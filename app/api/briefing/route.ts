@@ -19,7 +19,7 @@ async function handlePOST(req: Request) {
   const origin = baseUrl(req);
   return agentStream(async (send) => {
     const result = await runAgent([{ role: "user", content: BRIEFING_PROMPT }], origin, send);
-    const briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions };
+    const briefing = { at: new Date().toISOString(), reply: result.reply, steps: result.actions, source: "manual" as const };
     updateDb((db) => { db.briefing = briefing; });
     return { reply: result.reply, actions: result.actions, at: briefing.at };
   });

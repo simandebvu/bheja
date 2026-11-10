@@ -107,6 +107,39 @@ Signed member payment links work without login, expire after 30 days, and only a
 
 For a quick judge walkthrough with one inbox, use **Explore sample circles** after signup. For the complete invitation journey, use two email addresses/accounts you control. In a configured PayPal environment, use sandbox personal accounts for payments and payouts. Without PayPal credentials, local mock payments are available. AI reminders remain in the in-app outbox; email invitations are real transactional emails. This is still a sandbox, not a live-money service.
 
+## Scheduled treasurer
+
+The treasurer can act without anyone opening the app. `POST /api/cron/briefing` (bearer `CRON_SECRET`, 503 if unset, 401 if wrong) runs the same briefing agent for each verified account that has at least one launched, non-sample circle. Accounts run one at a time inside their own account scope, up to `CRON_MAX_ACCOUNTS` (default 25); an account briefed within `CRON_MIN_HOURS` (default 20) is skipped, and one account's failure does not stop the rest. The result is saved as the account's briefing with `source: "scheduled"`, and the circles page labels it "Ran on its own". The agent still has no payout-release tool, so a scheduled run can remind and propose but never move money. It returns `{ran, skipped, failed}`. `scripts/run-scheduled-briefing.mjs` does the same call from Node.
+
+Install on the server (`/etc/rotapot.env` holds `CRON_SECRET`):
+
+```ini
+# /etc/systemd/system/rotapot-briefing.service
+[Unit]
+Description=Rotapot scheduled treasurer briefing
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/rotapot.env
+ExecStart=/usr/bin/curl -fsS -X POST -H "Authorization: Bearer ${CRON_SECRET}" http://127.0.0.1:3096/api/cron/briefing
+```
+
+```ini
+# /etc/systemd/system/rotapot-briefing.timer
+[Unit]
+Description=Run the Rotapot treasurer daily
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Then `sudo systemctl daemon-reload && sudo systemctl enable --now rotapot-briefing.timer`. Test with `sudo systemctl start rotapot-briefing.service`.
+
 ## How the pieces fit
 
 ![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)

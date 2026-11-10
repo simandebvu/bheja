@@ -123,6 +123,8 @@ export interface Briefing {
   at: string;
   reply: string;
   steps: BriefingStep[];
+  /** "scheduled" when the timer ran it unattended; absent on older data. */
+  source?: "manual" | "scheduled";
 }
 
 export interface Db {

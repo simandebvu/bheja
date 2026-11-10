@@ -43,6 +43,7 @@ export default function Circles() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [reply, setReply] = useState<string | null>(null);
   const [briefedAt, setBriefedAt] = useState<string | null>(null);
+  const [scheduled, setScheduled] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
@@ -67,7 +68,7 @@ export default function Circles() {
         setSteps((prev) => upsertStep(prev, s));
         if (s.status !== "running") load();
       },
-      reply: (r) => { setReply(r); setBriefedAt(new Date().toISOString()); },
+      reply: (r) => { setReply(r); setBriefedAt(new Date().toISOString()); setScheduled(false); },
       error: (m) => setError(m),
     });
     setRunning(false);
@@ -84,6 +85,7 @@ export default function Circles() {
       if (d.briefing) {
         setReply(d.briefing.reply);
         setBriefedAt(d.briefing.at);
+        setScheduled(d.briefing.source === "scheduled");
         setSteps(d.briefing.steps.map((s, i) => ({ id: `saved-${i}`, tool: s.tool, input: s.input, status: s.ok ? "done" : "error", summary: s.summary })));
       } else if (d.clubs.some((c) => c.status !== "draft") && d.agentReady && !started.current) {
         started.current = true;
@@ -157,7 +159,7 @@ export default function Circles() {
             <h2>{running ? "Going through your circles…" : reply ? "Here's where things stand" : "Briefing"}</h2>
           </div>
           <div className="briefing-meta">
-            {briefedAt && !running && <span>Prepared at {time(briefedAt)}</span>}
+            {briefedAt && !running && <span>{scheduled ? `Ran on its own at ${time(briefedAt)} · while you were away` : `Prepared at ${time(briefedAt)}`}</span>}
             <button className="ghost-btn" onClick={runBriefing} disabled={running || !data.agentReady}>{running ? "Working…" : "Run again"}</button>
           </div>
         </div>

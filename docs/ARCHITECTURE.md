@@ -53,6 +53,39 @@ Circle-specific instructions, such as avoiding reminders before the due date, ar
 
 The server streams progress as newline-delimited JSON. A disconnected viewer stops receiving events while the server-side run continues if its process stays alive. This is not a durable background job and does not survive process termination.
 
+## Scheduled treasurer
+
+The treasurer can act without anyone opening the app. `POST /api/cron/briefing` (bearer `CRON_SECRET`, 503 if unset, 401 if wrong) runs the same briefing agent for each verified account that has at least one launched, non-sample circle. Accounts run one at a time inside their own account scope, up to `CRON_MAX_ACCOUNTS` (default 25); an account briefed within `CRON_MIN_HOURS` (default 20) is skipped, and one account's failure does not stop the rest. The result is saved as the account's briefing with `source: "scheduled"`, and the circles page labels it "Ran on its own". The agent still has no payout-release tool, so a scheduled run can remind and propose but never move money. It returns `{ran, skipped, failed}`. `scripts/run-scheduled-briefing.mjs` does the same call from Node.
+
+Install on the server (`/etc/rotapot.env` holds `CRON_SECRET`):
+
+```ini
+# /etc/systemd/system/rotapot-briefing.service
+[Unit]
+Description=Rotapot scheduled treasurer briefing
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/rotapot.env
+ExecStart=/usr/bin/curl -fsS -X POST -H "Authorization: Bearer ${CRON_SECRET}" http://127.0.0.1:3096/api/cron/briefing
+```
+
+```ini
+# /etc/systemd/system/rotapot-briefing.timer
+[Unit]
+Description=Run the Rotapot treasurer daily
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Then `sudo systemctl daemon-reload && sudo systemctl enable --now rotapot-briefing.timer`. Test with `sudo systemctl start rotapot-briefing.service`.
+
 ## Before a real-money pilot
 
 Expanded member roles, transactional circle persistence, payment reconciliation, webhook verification, concurrency controls, abuse prevention, privacy controls and native-speaker review are required. See the [roadmap](ROADMAP.md) and [security notes](../SECURITY.md).
