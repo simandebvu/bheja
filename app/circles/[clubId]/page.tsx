@@ -133,7 +133,9 @@ export default function CircleDashboard() {
   const shortDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   const target = Number(cycle.payout.amount);
   const late = daysLate(cycle.dueDate);
-  const awaiting = cycle.payout.status === "awaiting_approval";
+  // Right after a release, the screen can still hold the old cycle for a moment: don't
+  // flash the Release button again for a payout that has just been sent.
+  const awaiting = cycle.payout.status === "awaiting_approval" && !(sent && sent.recipient === recipient.name);
   const flags = countriesOf(club.members.map((m) => m.city));
 
   return (
