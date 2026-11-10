@@ -70,7 +70,7 @@ The agent's tools:
 
 Click **Reset demo** first. The briefing runs again the next time the circles page opens.
 
-1. **(0:00) Sign in.** "Rudo treasures three savings circles across five countries. Millions of Africans save like this, on WhatsApp and trust."
+1. **(0:00) Sign in.** "Rudo is treasurer of three savings circles across five countries. Millions of Africans save like this, on WhatsApp and trust."
 2. **(0:15) The briefing runs by itself.** Let the trace play: it reads each circle, writes to Sipho in isiZulu, Thandiwe in Ndebele and Lerato in Sesotho, skips Soweto because its rules say not before the due date, and puts Leicester's US$500 up for approval.
 3. **(0:50) Leicester.** Open the navy "ready to release" card. Show the ring: all five paid. Tap **Release US$500**. PayPal Payouts fires, the card turns green with the batch ID, the circle *turns* to Tatenda, and Farai's phone shows "Makorokoto Farai!".
 4. **(1:30) Ubuntu Circle.** Show the phone tabs with the three reminders in three languages (toggle "Show English"). Open Thandiwe's pay link on a phone and pay with PayPal sandbox; on the dashboard her segment fills gold and a receipt lands on her phone.
