@@ -38,7 +38,7 @@ Hard rules:
 
 const clubIds = () => loadDb().clubs.filter((c) => c.status !== "draft").map((c) => c.id);
 
-function tools(): Anthropic.Tool[] {
+export function agentTools(): Anthropic.Tool[] {
   const club_id = { type: "string" as const, enum: clubIds(), description: "Which circle." };
   return [
     {
@@ -136,7 +136,7 @@ export interface AgentAction {
   summary: string;
 }
 
-async function runTool(name: string, input: Record<string, unknown>, baseUrl: string): Promise<{ result: unknown; summary: string }> {
+export async function executeTool(name: string, input: Record<string, unknown>, baseUrl: string): Promise<{ result: unknown; summary: string }> {
   const clubId = String(input.club_id ?? "");
   const clubName = () => loadClub(clubId).name;
   const memberName = (id: unknown) => loadClub(clubId).members.find((m) => m.id === id)?.name.split(" ")[0] ?? String(id);
@@ -223,7 +223,7 @@ export async function runAgent(
       // Gateways may not forward newer request fields; only send them first-party.
       ...(VIA_GATEWAY ? {} : { thinking: { type: "adaptive" as const }, output_config: { effort: "medium" as const } }),
       system,
-      tools: tools(),
+      tools: agentTools(),
       messages,
     });
 
@@ -249,7 +249,7 @@ export async function runAgent(
       const input = (tu.input ?? {}) as Record<string, unknown>;
       onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "running" });
       try {
-        const { result, summary } = await runTool(tu.name, input, baseUrl);
+        const { result, summary } = await executeTool(tu.name, input, baseUrl);
         onEvent({ type: "step", id: tu.id, tool: tu.name, input, status: "done", summary });
         actions.push({ tool: tu.name, input, ok: true, summary });
         results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(result) });

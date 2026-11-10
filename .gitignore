@@ -8,3 +8,4 @@ next-env.d.ts
 
 data/auth.sqlite*
 data/accounts/
+data/agent-keys.json*

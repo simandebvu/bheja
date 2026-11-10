@@ -113,6 +113,25 @@ For a quick judge walkthrough with one inbox, use **Explore sample circles** aft
 
 The agent has **nine tools**, including payment verification, reminder delivery to the outbox, payment-plan proposals and payout proposals. It has **no payout-release tool**. Verification can capture a contribution the member already approved. Read the [architecture and authority boundaries](docs/ARCHITECTURE.md).
 
+## Agent-first: MCP
+
+Any MCP client can operate a treasurer's circles headlessly through `POST /api/mcp` (Streamable HTTP, stateless). It exposes the same nine tools and guardrails as the in-app agent. There is no tool that releases money: agents can propose payouts and payment plans, and only the treasurer releases or approves them in the app. See also [`public/llms.txt`](public/llms.txt).
+
+1. Sign in, open the circles home, and create a key under **Connect an agent** (shown once, stored only as a SHA-256 hash in `data/agent-keys.json`).
+2. Add it to your client config:
+
+```json
+{ "mcpServers": { "rotapot": { "type": "http", "url": "http://localhost:3000/api/mcp", "headers": { "Authorization": "Bearer rtp_..." } } } }
+```
+
+Or call it directly:
+
+```bash
+curl -s http://localhost:3000/api/mcp \
+  -H "Authorization: Bearer rtp_..." -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_circles","arguments":{}}}'
+```
+
 ## Project guide
 
 | Resource | Start here for |

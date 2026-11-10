@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Briefing, Club } from "@/lib/types";
 import { streamAgent, Trace, upsertStep, type Step } from "../components/agentClient";
 import MiniRing from "../components/MiniRing";
+import ConnectAgent from "../components/ConnectAgent";
 import { ledgerTotals, sinceLabel } from "@/lib/passport";
 import { LogoMark, Markdown, countriesOf, firstName } from "../components/ui";
 
@@ -220,6 +221,7 @@ export default function Circles() {
           );
         })}
       </section></>}
+      <ConnectAgent />
       <section className="sample-invitation"><div><span className="eyebrow">Taking a look around?</span><h3>See a circle already in motion.</h3><p>Explore sample contributions, a ready payout and the AI treasurer. Your own circles stay untouched.</p></div><button className="secondary-action" disabled={sampleBusy} onClick={() => void reset()}>{sampleBusy ? "Opening the sample…" : data.clubs.some((c) => c.sample) ? "Refresh sample circles ↻" : "Explore sample circles →"}</button></section>
     </main>
   );
