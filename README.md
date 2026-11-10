@@ -144,6 +144,10 @@ Then `sudo systemctl daemon-reload && sudo systemctl enable --now rotapot-briefi
 
 To book payments even when a member closes the tab, add a webhook in your PayPal sandbox app pointing at `https://rotapot.simakk.co.za/api/paypal/webhook` with events `PAYMENT.CAPTURE.COMPLETED` and `CHECKOUT.ORDER.APPROVED`, and put its Webhook ID in `PAYPAL_WEBHOOK_ID`. See [the architecture notes](docs/ARCHITECTURE.md#paypal-webhooks-optional).
 
+## PayPal Agent Toolkit (optional)
+
+Set `PAYPAL_AGENT_TOOLKIT=1` (with sandbox credentials) and the in-app agent also gets a small allowlist of tools from the official `@paypal/agent-toolkit`: search transactions and get an order (to reconcile a circle's books against PayPal), and create, send and QR-code an invoice (set `PAYPAL_INVOICER_EMAIL` to allow invoices). Order creation, payment, refunds and disputes are deliberately not enabled, so the agent still cannot move money. The toolkit runs in sandbox mode only and is not exposed through the MCP endpoint.
+
 ## How the pieces fit
 
 ![Architecture: the dashboard and member flow call Next.js routes, the Claude agent uses domain tools, and only the treasurer release route calls PayPal Payouts.](docs/assets/architecture.svg)
