@@ -1,10 +1,10 @@
-# Bheja: an AI treasurer for savings clubs
+# Rotapot: an AI treasurer for savings clubs
 
 Millions of people in Southern Africa save through rotating savings clubs. South Africans call them **stokvels**; Zimbabweans call them **mukando** or **rounds**. Every month each member chips in, and the whole pot goes to one member, in turn.
 
 These clubs mostly run on WhatsApp groups, notebooks and trust. The treasurer chases late payers by hand, keeps the books in their head, and moves the money. Members are often spread across Johannesburg, Harare, Bulawayo and London, so cash doesn't work.
 
-**Bheja** gives the club an AI treasurer, built on PayPal:
+**Rotapot** gives the club an AI treasurer, built on PayPal:
 
 - **Collect.** Every member gets a PayPal checkout link (Orders v2) for their monthly contribution. US dollars work for both the Zimbabwean and South African members, and for the diaspora.
 - **Chase, kindly.** A Claude agent reads the books, works out who is late, and writes reminders **in each member's own language**: Shona, Ndebele, isiZulu, Sesotho or English.

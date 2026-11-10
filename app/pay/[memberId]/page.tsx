@@ -17,7 +17,7 @@ export default async function PayPage({ params }: { params: Promise<{ memberId: 
   return (
     <main className="paywrap">
       <div className="card paycard">
-        <div className="logo" style={{ margin: "0 auto" }}>B</div>
+        <div className="logo" style={{ margin: "0 auto" }}>R</div>
         <h1 style={{ fontSize: 18, marginBottom: 0 }}>{club.name}</h1>
         <p className="meta">Cycle {cycle.number} contribution for {member.name}</p>
         <div className="amount">US${club.contributionAmount}</div>

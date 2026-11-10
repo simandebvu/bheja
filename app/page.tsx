@@ -103,7 +103,7 @@ export default function Dashboard() {
     <main className="shell">
       <div className="top">
         <div className="brand">
-          <div className="logo">B</div>
+          <div className="logo">R</div>
           <div>
             <h1>{club.name}</h1>
             <p>
@@ -185,7 +185,7 @@ export default function Dashboard() {
               <div>
                 {cycle.payout.status === "awaiting_approval" ? (
                   <>
-                    <b>Bheja proposes sending US${cycle.payout.amount} to {recipient.name}.</b>
+                    <b>Rotapot proposes sending US${cycle.payout.amount} to {recipient.name}.</b>
                     <div className="meta">{cycle.payout.proposedReason}</div>
                   </>
                 ) : cycle.payout.status === "sent" ? (
@@ -205,7 +205,7 @@ export default function Dashboard() {
         <section>
           <div className="card chat">
             <header>
-              <h2>Ask Bheja</h2>
+              <h2>Ask Rotapot</h2>
               <p>Your treasurer agent. It reads the books, checks PayPal, writes reminders and proposes payouts. It can&apos;t send money without you.</p>
             </header>
             <div className="msgs" ref={msgsRef}>
@@ -222,7 +222,7 @@ export default function Dashboard() {
                   )}
                 </div>
               ))}
-              {busy && <div className="thinking">Bheja is working…</div>}
+              {busy && <div className="thinking">Rotapot is working…</div>}
             </div>
             <div className="chips">
               {SUGGESTIONS.map((s) => (

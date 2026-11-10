@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export function fail(err: unknown, status = 400) {
   const message = err instanceof Error ? err.message : String(err);
-  console.error("[bheja]", message);
+  console.error("[rotapot]", message);
   return NextResponse.json({ error: message }, { status });
 }
 
