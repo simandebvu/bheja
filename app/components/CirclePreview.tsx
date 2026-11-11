@@ -17,7 +17,7 @@ export default function CirclePreview({ names, amount, name, step = 0 }: { names
       <text x="180" y="193" textAnchor="middle" className="preview-value">${(Number(amount || 0) * names.length).toLocaleString("en-US", { maximumFractionDigits: 2 })}</text>
       <text x="180" y="220" textAnchor="middle" className="preview-caption">USD · every month</text>
     </svg>
-    <div className="preview-equation"><span>{names.length} {names.length === 1 ? "person" : "people"}</span><b>×</b><span>${Number(amount || 0)} each</span><b>=</b><span>more possibility</span></div>
+    <div className="preview-equation"><span>{names.length} {names.length === 1 ? "person" : "people"}</span><b>×</b><span>${Number(amount || 0)} each</span><b>=</b><span className="eq-long">more possibility</span><span className="eq-short">${(Number(amount || 0) * names.length).toLocaleString("en-US", { maximumFractionDigits: 2 })} pot each month</span></div>
     <p className="preview-story">{["Give it a name your people will be proud to belong to.", "Small, steady promises. One person gets the whole pot each month.", "Every chair has a name. Every person gets a turn.", "Clear rules. A fair rotation. Everyone starts on the same page."][step]}</p>
     <span className="preview-sandbox">PayPal sandbox · no real money moves</span>
   </aside>;

@@ -67,7 +67,7 @@ export default function CircleBuilder({ editId }: { editId?: string }) {
   }
   return <main className="gather-page">
     <header className="gather-header"><Link href="/circles" className="brand"><LogoMark /><span className="wordmark">rotapot</span></Link><Link href="/circles">{editId ? "Back to circles ↗" : "Save it for later ↗"}</Link></header>
-    <div className="gather-grid">
+    <div className="gather-grid builder-grid">
       <section className="gather-work">
         <nav className="stepper" aria-label="Circle setup">{steps.map((label, index) => <span key={label} className={index === step ? "current" : index < step ? "complete" : ""} aria-current={index === step ? "step" : undefined}><b>{index < step ? "✓" : `0${index + 1}`}</b>{label}</span>)}</nav>
         <span className="eyebrow">{editId ? "Make room for a change" : "Your first good move"} / 0{step + 1}</span>
@@ -109,7 +109,7 @@ export default function CircleBuilder({ editId }: { editId?: string }) {
           <div className="gather-controls">{step > 0 ? <button type="button" className="secondary-action" disabled={busy} onClick={() => { setStep(step - 1); setError(""); }}>← Back</button> : <span className="field-help">{saved ? "Draft saved in this browser" : "About three minutes"}</span>}<button className="primary-action" disabled={busy}>{busy ? "Saving your circle…" : step === 3 ? editId ? "Save & renew invitations →" : "Create my circle →" : "Keep going →"}</button></div>
         </form>}
       </section>
-      <CirclePreview name={draft.name} amount={draft.contributionAmount} names={draft.members.map((m) => m.name)} step={step} />
+      {(ready || !editId) && <CirclePreview name={draft.name} amount={draft.contributionAmount} names={draft.members.map((m) => m.name)} step={step} />}
     </div>
   </main>;
 }
