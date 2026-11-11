@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://rotapot.simakk.co.za"><strong>Try the live demo</strong></a> ·
-  <a href="https://youtu.be/6AdlBTQAcvI"><strong>Watch the film</strong></a> ·
+  <a href="https://youtu.be/ucI4Xt354pM"><strong>Watch the film</strong></a> ·
   <a href="https://devpost.com/software/rotapot"><strong>Devpost</strong></a> ·
   <a href="https://github.com/simandebvu/rotapot/releases">Releases</a>
 </p>

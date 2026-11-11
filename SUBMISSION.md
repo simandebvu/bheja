@@ -13,7 +13,7 @@ An AI treasurer for stokvels, mukando and diaspora savings circles. Built on Pay
 ## Links
 - Live demo: https://rotapot.simakk.co.za (sign up with any email; the verification email is real)
 - Code: https://github.com/simandebvu/rotapot
-- Video: https://youtu.be/6AdlBTQAcvI
+- Video: https://youtu.be/ucI4Xt354pM
 
 ## Prize categories to tick
 - Best Use of Agentic Commerce
@@ -32,7 +32,7 @@ The part I wanted to fix is the admin. A circle can run on a WhatsApp group, a n
 
 Rotapot gives the treasurer an AI assistant for the chasing and the bookkeeping, with PayPal handling contributions and payouts. The treasurer decides when to release the pot. The agent has no payout tool.
 
-- **Start a real circle in two minutes.** Sign up, verify your email, and build a circle: amount, due date, members, rotation order. Rotapot emails each member a signed invitation. They create their own account, accept the rules and give the PayPal email where their pot should land. The treasurer then launches the circle.
+- **Start a real circle in two minutes.** Sign in with Google (or sign up and verify your email), and build a circle: amount, due date, members, rotation order. Rotapot emails each member a signed invitation. They create their own account, accept the rules and give the PayPal email where their pot should land. The treasurer then launches the circle.
 - **The agent works while you're away.** Every morning the treasurer agent goes through each of your circles on its own, without anyone opening the app. Following each circle's rules, it sends the reminders that are due and puts any fully paid pot up for your approval. When you sign in, a briefing is waiting, labelled as something it did on its own. You can watch every step, including the actual tool calls.
 - **Agent-first, not dashboard-first.** Every circle can be run from outside the app. Rotapot exposes the same nine treasurer tools as an MCP server, so a treasurer can connect any MCP-capable agent with a personal key and say "chase whoever is late in the Leicester round." The guardrails are the same as in the app: an outside agent can propose a payout but never release one.
 - **Collects through PayPal.** Every member gets a personal PayPal checkout link (Orders API). The pay page greets them in their own language and shows when their turn to receive the pot comes.
@@ -84,10 +84,11 @@ The biggest lesson for me was how much of the work sits outside the model. The m
 
 ## What's next for Rotapot
 
-- Real WhatsApp delivery and inbound messages through the WhatsApp Business API.
+- Real WhatsApp delivery and inbound messages through the WhatsApp Business API, and a phone app for treasurers.
 - Local payment rails alongside PayPal (for example PayShap in South Africa). PayPal doesn't settle in rand, so the demo runs in US dollars, which fits Zimbabwe and the diaspora.
 - Explore a portable payment record that members can choose to share, with proper consent and validation before any use in financial decisions.
 - Native-speaker review of every message template, and more languages: isiXhosa, Tshivenda, Xitsonga, chiChewa.
+- A careful pilot with real stokvels and treasurers before any real money moves.
 
 ## Built with
 nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal-agent-toolkit, paypal-webhooks, paypal-orders-api, paypal-payouts-api, paypal-js-sdk, better-auth, resend, sqlite, node.js, caddy
@@ -96,7 +97,7 @@ nextjs, react, typescript, claude, anthropic-sdk, model-context-protocol, paypal
 
 ## Notes for judges
 - The demo uses PayPal **sandbox**; no real money moves.
-- **Sign up with any email address you can open.** Verification is a real email, and sign-up takes under a minute. There's no shared demo account, so your circles are private to you.
+- **Continue with Google, or sign up with any email address you can open.** Verification is a real email, and sign-up takes under a minute. There's no shared demo account, so your circles are private to you.
 - **Paying as a member:** log in with a PayPal **sandbox** personal account (`sb-bk2d453834129@personal.example.com` / `5">yL-??`, fake money only), or pay as a guest by card with a [PayPal sandbox test card](https://developer.paypal.com/tools/sandbox/card-testing/).
 - Fastest path: sign up, click the verification link, choose **See it working: open 3 sample circles**, watch the briefing, open a circle, pay as a member from the pay link, then release the payout. For the full invitation journey, use two email addresses.
 - To try the MCP server, create a key under **Connect an agent** and use the config snippet shown there. The README also has a curl example.
