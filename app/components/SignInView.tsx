@@ -57,8 +57,11 @@ export default function SignInView({ googleEnabled }: { googleEnabled: boolean }
           for savings circles.
         </h1>
         <p className="signin-lede">
-          Stokvels, mukando, diaspora rounds: millions of people pool money every month on trust and WhatsApp. Rotapot collects through PayPal,
-          chases late payers kindly in their own language, and puts each payout in front of the treasurer, who is the only one who can release it.
+          <span className="lede-long">
+            Stokvels, mukando, diaspora rounds: millions of people pool money every month on trust and WhatsApp. Rotapot collects through PayPal,
+            chases late payers kindly in their own language, and puts each payout in front of the treasurer, who is the only one who can release it.
+          </span>
+          <span className="lede-short">Collects through PayPal, reminds kindly in each member&apos;s language. Only the treasurer releases a payout.</span>
         </p>
         <HeroRing />
       </section>

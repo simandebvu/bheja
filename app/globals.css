@@ -352,6 +352,8 @@ a.tag.due:hover { background: var(--indigo); color: #fff; }
 .brand.light .wordmark { color: #fff; }
 .brand.light svg circle:first-child { stroke: #fff; }
 .signin-pitch h1 { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 4.6vw, 60px); line-height: 1.02; letter-spacing: -0.045em; max-width: 12ch; position: relative; z-index: 1; }
+.signin-lede .lede-short { display: none; }
+@media (max-width: 900px) { .signin-lede .lede-short { display: inline; } }
 .signin-lede { margin-top: 20px; font-size: 16px; line-height: 1.6; max-width: 46ch; color: rgba(255,255,255,0.82); position: relative; z-index: 1; }
 /* Tucked into the corner so its seats never pass behind the lede. */
 .hero-ring { position: absolute; right: -150px; bottom: -200px; width: 400px; opacity: 0.95; pointer-events: none; }
@@ -721,4 +723,13 @@ a.tag.late { padding: 8px 11px; min-height: 32px; display: inline-flex; align-it
 /* Phones: show the whole ledger instead of a box that cuts its last row mid-sentence. */
 @media (max-width: 560px) {
   .ledger ol { max-height: none; overflow: visible; }
+}
+/* Phones and tablets: a compact pitch so returning treasurers see the form without scrolling. */
+@media (max-width: 900px) {
+  .signin-pitch { padding: 22px 20px 24px; }
+  .signin-pitch .brand.light { margin-bottom: 16px; }
+  .signin-pitch h1 { font-size: clamp(26px, 7vw, 30px); max-width: none; }
+  .signin-lede { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .signin-lede .lede-long { display: none; }
+  .signin-panel { justify-content: flex-start; padding: 24px 20px 32px; }
 }
