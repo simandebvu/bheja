@@ -1,6 +1,6 @@
 # Demo guide
 
-**[Live app](https://rotapot.simakk.co.za) · [Demo film](https://youtu.be/6AdlBTQAcvI) · [Devpost entry](https://devpost.com/software/rotapot)**
+**[Live app](https://rotapot.simakk.co.za) · [Demo film](https://youtu.be/ucI4Xt354pM) · [Devpost entry](https://devpost.com/software/rotapot)**
 
 The film is about two minutes. The live application is a sandbox prototype with verified email accounts and an empty starting state and optional sample circles.
 
