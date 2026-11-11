@@ -66,6 +66,7 @@ Open **http://localhost:3000**. Add your own credentials to `.env.local`:
 | --- | --- |
 | `BETTER_AUTH_SECRET` | Required random secret, at least 32 characters. Generate with `openssl rand -base64 48`; keep stable across restarts. |
 | `BETTER_AUTH_URL` | Exact application origin, e.g. `http://localhost:3000` locally or your HTTPS production URL. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional. Enable "Continue with Google" when both are set. Authorized redirect URI: `<BETTER_AUTH_URL>/api/auth/callback/google`. |
 | `RESEND_API_KEY` | Required for email verification and password reset delivery. |
 | `RESEND_FROM` | Verified Resend sender, e.g. `Rotapot <info@simakk.co.za>`. |
 | `AUTH_TRUSTED_IP_HEADER` | Optional proxy-overwritten client IP header for per-client rate limits. Leave unset unless the proxy guarantees it. |

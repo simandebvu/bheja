@@ -27,6 +27,11 @@ async function createAuth() {
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => { await sendAuthEmail(user.email, url, "reset"); },
     },
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? { socialProviders: { google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET } } }
+      : {}),
+    // Members are invited by email: a Google sign-in with the same address links to the existing account.
+    account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
     emailVerification: {
       // better-auth swallows a failed send during sign-up and still returns 200. sendAuthEmail
       // flags the failure and the auth route adds an `x-rotapot-email: failed` header so the
