@@ -89,7 +89,7 @@ export function agentTools(): Anthropic.Tool[] {
     },
     {
       name: "reply_to_member",
-      description: "Send a WhatsApp message to one member, in their language, answering what they wrote. Add a blank line and an 'EN:' translation after non-English text.",
+      description: "Send a message to one member, in their language, answering what they wrote. Put {{PAY_LINK}} where their personal PayPal link should go, if they need it. Add a blank line and an 'EN:' translation after non-English text.",
       input_schema: {
         type: "object",
         properties: { club_id, member_id: { type: "string" }, language: { type: "string", enum: LANGUAGES }, message: { type: "string" } },
@@ -189,7 +189,7 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       const memberId = String(input.member_id);
       const link = `${baseUrl}${payLink(clubId, memberId)}`;
       const raw = String(input.message);
-      const text = raw.includes("{{PAY_LINK}}") ? raw.replaceAll("{{PAY_LINK}}", link) : `${raw}\n${link}`;
+      const text = fillPayLink(raw, link, true);
       addReminder(clubId, memberId, text, input.language as Language);
       return { result: { sent: true }, summary: `Reminded ${memberName(memberId)} in ${input.language}` };
     }
@@ -202,7 +202,9 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       return { result: r, summary: `${memberName(input.member_id)}: ${r.on_time_rate} on time` };
     }
     case "reply_to_member": {
-      replyToMember(clubId, String(input.member_id), input.language as Language, String(input.message));
+      const memberId = String(input.member_id);
+      const link = `${baseUrl}${payLink(clubId, memberId)}`;
+      replyToMember(clubId, memberId, input.language as Language, fillPayLink(String(input.message), link, false));
       return { result: { sent: true }, summary: `Replied to ${memberName(input.member_id)} in ${input.language}` };
     }
     case "propose_payment_plan": {
@@ -282,6 +284,12 @@ function notesToReply(notes: BriefingNote[]): string {
 }
 
 /** A member's WhatsApp message, handled by the agent end to end. */
+/** Swap the {{PAY_LINK}} placeholder for the member's signed link; optionally append the link when the agent left it out. */
+export function fillPayLink(raw: string, link: string, appendIfMissing: boolean): string {
+  if (raw.includes("{{PAY_LINK}}")) return raw.replaceAll("{{PAY_LINK}}", link);
+  return appendIfMissing ? `${raw}\n${link}` : raw;
+}
+
 export function memberMessagePrompt(o: { name: string; language: string; club: string; text: string; today: string }) {
   return `${o.name} (writes in ${o.language}) just sent this WhatsApp message to ${o.club}:\n"${o.text}"\n\nToday is ${o.today}. Handle it: check the books and PayPal if they mention paying, look at their track record if they ask for time, and answer them with reply_to_member in ${o.language}. If they ask for more time or to split the payment, propose a sensible plan for the treasurer to approve and tell them the treasurer will confirm. Then give the treasurer a one or two sentence summary of what happened.`;
 }

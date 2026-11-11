@@ -41,3 +41,10 @@ test("submit_briefing is never exposed outside briefing runs (e.g. over MCP)", (
     assert.ok(!agentTools().some((t) => t.name === "submit_briefing"));
   });
 });
+
+test("fillPayLink substitutes the placeholder and only appends when asked", async () => {
+  const { fillPayLink } = await import("../lib/agent");
+  assert.equal(fillPayLink("Pay here {{PAY_LINK}} ok {{PAY_LINK}}", "https://x/p", false), "Pay here https://x/p ok https://x/p");
+  assert.equal(fillPayLink("No placeholder", "https://x/p", false), "No placeholder");
+  assert.equal(fillPayLink("No placeholder", "https://x/p", true), "No placeholder\nhttps://x/p");
+});

@@ -306,12 +306,12 @@ export async function refreshPayoutStatus(clubId: string, cycleNumber?: number) 
   return { cycle: cycle.number, status: p.status, paypal_batch_status: batch.batch_header.batch_status };
 }
 
-/** A member wrote to the circle on WhatsApp. */
+/** A member wrote to the circle. */
 export function recordInbound(clubId: string, memberId: string, text: string) {
   return updateClub(clubId, (club) => {
     const m = findMember(club, memberId);
     const msg = pushMessage(club, memberId, m.language, text, "member", "in");
-    logActivity(club, "nudge", `${m.name} replied on WhatsApp.`);
+    logActivity(club, "nudge", `${m.name} replied in the circle inbox.`);
     return { member: m, message: msg };
   });
 }

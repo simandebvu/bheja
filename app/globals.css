@@ -516,7 +516,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .field-help { display: block; color: var(--muted); font-size: 12px; line-height: 1.7; font-weight: 400; }
 .money-input { display: flex; align-items: center; position: relative; }
 .money-input > span { position: absolute; left: 18px; font-family: var(--mono); font-size: 18px; }
-.gather-form .money-input input { font-family: var(--display); font-size: 32px; padding-left: 75px; }
+.gather-form .money-input input:not([type=radio]):not([type=checkbox]) { line-height: 1.2; font-family: var(--display); font-size: 32px; padding-left: 75px; }
 .promise-note { padding: 18px 20px; background: var(--marigold-wash); border-radius: 12px; font-size: 13px; line-height: 1.7; color: var(--ink-2); }
 .promise-note b { color: var(--ink); }
 .circle-preview { position: sticky; top: 32px; background: var(--indigo); padding: 32px 30px 26px; border-radius: 110px 110px 24px 24px; color: #fff; overflow: hidden; text-align: center; }
