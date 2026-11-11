@@ -13,6 +13,21 @@ import { LogoMark, Markdown, countriesOf, firstName } from "../components/ui";
 
 type Data = { memberships: { id: string; name: string; status: string; amount: string }[]; clubs: Club[]; briefing: Briefing | null; paypalMode: "sandbox" | "mock"; agentReady: boolean };
 
+/** Agent step log: open on wide screens and while running; tucked away (and below the cards) on phones. */
+function TraceDetails({ steps, clubs, running }: { steps: Step[]; clubs: Club[]; running: boolean }) {
+  const [wide, setWide] = useState(false);
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  useEffect(() => { setWide(window.matchMedia("(min-width: 901px)").matches); }, []);
+  if (!steps.length) return null;
+  const open = running || (userOpen ?? wide);
+  return (
+    <details className="trace-details" open={open} onToggle={(e) => { if (!running) setUserOpen(e.currentTarget.open); }}>
+      <summary>How the agent prepared this ({steps.length} step{steps.length === 1 ? "" : "s"})</summary>
+      <Trace steps={steps} clubs={clubs} />
+    </details>
+  );
+}
+
 function clubFallbackDate() { return new Date().toISOString().slice(0, 7); }
 
 /** Shona greeting with its English meaning, so it welcomes rather than puzzles. */
@@ -197,8 +212,8 @@ export default function Circles() {
           </div>
         </div>
         <div className="briefing-body">
-          <div className="briefing-trace">
-            <Trace steps={steps} clubs={clubs} />
+          <div className={`briefing-trace${running ? " running" : ""}`}>
+            <TraceDetails steps={steps} clubs={clubs} running={running} />
             {running && !reply && <div className="thinking"><span /><span /><span /></div>}
             {!running && !steps.length && !reply && !data.agentReady && <p className="muted">Add an agent API key to get a briefing.</p>}
           </div>

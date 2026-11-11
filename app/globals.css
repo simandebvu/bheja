@@ -267,8 +267,7 @@ a.tag.due:hover { background: var(--indigo); color: #fff; }
 .release.done b { font-size: 18px; color: var(--ink); }
 .release-batch { font-size: 13px; color: var(--ink-2); }
 .release-batch code { font-family: var(--mono); font-size: 12px; background: var(--surface); border: 1px solid rgba(14, 138, 99, 0.3); padding: 2px 6px; border-radius: 6px; color: var(--jade); }
-.trace li { flex-wrap: wrap; }
-.trace-label { flex: 0 1 auto; }
+.trace-label { min-width: 0; }
 .trace-call { font-family: var(--mono); font-size: 10.5px; color: var(--muted); background: var(--paper); padding: 1px 6px; border-radius: 5px; }
 .trace li.error .trace-label { text-decoration: line-through; text-decoration-color: rgba(107, 114, 144, 0.5); color: var(--muted); }
 .a-note .a-text { background: var(--jade-wash); color: #0b5a41; }
@@ -662,3 +661,64 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .connect-config { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .connect-config pre { margin: 0; padding: 12px; width: 100%; box-sizing: border-box; overflow-x: auto; background: var(--paper); border-radius: 12px; }
 @media (max-width: 760px) { .connect-agent { grid-template-columns: 1fr; padding: 20px; } }
+
+/* ---------- responsive polish ---------- */
+/* home: agent step log */
+.trace-details > summary { cursor: pointer; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); padding: 6px 0; list-style-position: inside; }
+.trace-details[open] > summary { margin-bottom: 6px; }
+.trace-details .trace { margin: 0; }
+.trace li { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; column-gap: 8px; }
+.trace-call { grid-column: 2; justify-self: start; overflow-wrap: anywhere; }
+.trace-icon { margin-top: 1px; }
+@media (max-width: 900px) {
+  .briefing-trace:not(.running) { order: 2; }
+  .record { grid-template-columns: repeat(3, 1fr); }
+  .record-note { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .trace-call { display: none; }
+  .record { grid-template-columns: 1fr 1fr; }
+  .record-figure:nth-child(3) { grid-column: 1 / -1; }
+  /* pot ring: SVG units scale down to ~0.56x on phones */
+  /* names sit outside the ring and would clip the viewBox at this size; the roster repeats them */
+  .marker-name { display: none; }
+  /* inner disc is ~226 units wide, so these are the largest sizes that stay inside it */
+  .pot-of { font-size: 18px; }
+  .pot-status { font-size: 18px; }
+  .pot-eyebrow { font-size: 15px; }
+  .roster-city { display: none; }
+}
+.pay-note + div { margin-top: 10px; }
+
+/* rotation strip */
+@media (max-width: 820px) {
+  .rotation-label { display: none; }
+  .rotation { padding-left: 12px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .rotation li { padding: 6px 9px; min-width: 96px; }
+  /* agent panel */
+  .agent { height: auto; min-height: 0; max-height: 70vh; }
+  .agent-intro { margin: 0; }
+  .pot { max-width: 420px; margin-inline: auto; }
+}
+a.tag.late { padding: 8px 11px; min-height: 32px; display: inline-flex; align-items: center; }
+
+/* setup: round card above the member list on phones */
+@media (max-width: 760px) {
+  .gather-work { display: flex; flex-direction: column; }
+  .gather-work > .invite-list { order: 1; }
+  .gather-work > .launch-card.is-active { order: 0; }
+}
+
+/* connect agent */
+.connect-details { margin-top: 24px; }
+.connect-details > summary { cursor: pointer; padding: 14px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.connect-details[open] > summary { margin-bottom: 12px; }
+.connect-details .connect-agent { margin-top: 0; }
+.connect-fresh code, .connect-config pre { word-break: normal; }
+.connect-config pre { white-space: pre; overflow-x: auto; }
+.connect-fresh code { word-break: break-all; }
+.nowrap { white-space: nowrap; }
+/* Phones: show the whole ledger instead of a box that cuts its last row mid-sentence. */
+@media (max-width: 560px) {
+  .ledger ol { max-height: none; overflow: visible; }
+}

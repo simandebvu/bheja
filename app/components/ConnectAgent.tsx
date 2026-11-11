@@ -48,6 +48,8 @@ export default function ConnectAgent() {
   const snippet = JSON.stringify({ mcpServers: { rotapot: { type: "http", url: `${origin}/api/mcp`, headers: { Authorization: `Bearer ${fresh ?? "<your key>"}` } } } }, null, 2);
 
   return (
+    <details className="connect-details">
+    <summary>For developers: connect your own AI agent</summary>
     <section className="connect-agent" aria-label="Connect an agent">
       <div>
         <span className="eyebrow">Agent-first</span>
@@ -69,5 +71,6 @@ export default function ConnectAgent() {
         </div>
       </div>
     </section>
+    </details>
   );
 }

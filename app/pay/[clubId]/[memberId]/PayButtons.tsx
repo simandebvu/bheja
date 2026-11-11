@@ -22,7 +22,7 @@ function loadSdk(clientId: string): Promise<PayPalNamespace> {
     const s = document.createElement("script");
     // buyer-country is sandbox-only: it lets testers outside PayPal's US checkout
     // (e.g. in Zimbabwe) see the full flow, including guest card payments.
-    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture&components=buttons&enable-funding=card&buyer-country=US`;
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture&components=buttons&enable-funding=card&disable-funding=paylater&buyer-country=US`;
     s.onload = () => (window.paypal ? resolve(window.paypal) : reject(new Error("PayPal SDK failed to load")));
     s.onerror = () => reject(new Error("PayPal SDK failed to load"));
     document.head.appendChild(s);

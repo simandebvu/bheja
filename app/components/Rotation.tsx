@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import type { Club, Member } from "@/lib/types";
 import { firstName } from "./ui";
 
@@ -9,8 +12,16 @@ function month(iso: string) {
 /** The rotation schedule: who gets the pot, when. Order is the content here. */
 export default function Rotation({ club }: { club: Club }) {
   const member = (id: string) => club.members.find((m) => m.id === id) as Member;
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const box = ref.current;
+    const now = box?.querySelector<HTMLElement>("li.now");
+    if (!box || !now) return;
+    const b = box.getBoundingClientRect(), n = now.getBoundingClientRect();
+    box.scrollLeft += n.left - b.left - (b.width - n.width) / 2;
+  }, [club.currentCycle]);
   return (
-    <nav className="rotation" aria-label="Payout rotation">
+    <nav className="rotation" aria-label="Payout rotation" ref={ref}>
       <span className="rotation-label">Rotation</span>
       <ol>
         {club.cycles.map((c) => {
